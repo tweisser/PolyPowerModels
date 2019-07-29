@@ -1,0 +1,7 @@
+name = "PolyPowerModels"
+uuid = "f3c7403e-b250-11e9-0dee-5374c00c4166"
+authors = ["Tillmann Weisser <tillmann.weisser@web.de>"]
+version = "0.1.0"
+
+[deps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
