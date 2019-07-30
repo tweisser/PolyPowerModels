@@ -11,7 +11,7 @@ PowerModels = "c36e90e8-916a-50a6-bd94-075b64ef4655"
 [deps] 
 DynamicPolynomials = "~0.3"
 JuMP = "~0.19"
-PowerModels = ~"0.12"
+PowerModels = "~0.12"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
