@@ -1,11 +1,11 @@
 export poly_acr_opf
 """
-    poly_acr_opf(data::Dict{String,Any})
+poly_acr_opf(data::Dict{String,Any}; model=PolyModel())
 
 Input: a PowerModels network data structure
 Output: a PolyModel describing the AC-Powerflow problem corresponding to the input data (in rectangular coordinates)
 """
-function poly_acr_opf(data::Dict{String,Any})
+function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
     @assert !haskey(data, "multinetwork")
     @assert !haskey(data, "conductors")
 
@@ -15,7 +15,7 @@ function poly_acr_opf(data::Dict{String,Any})
     @variable(model, -ref[:bus][i]["vmax"] <= vr[i in keys(ref[:bus])] <= ref[:bus][i]["vmax"], start = PowerModels.comp_start_value(ref[:bus][i], "vr_start", 0, 1.0))
     @variable(model, -ref[:bus][i]["vmax"] <= vi[i in keys(ref[:bus])] <= ref[:bus][i]["vmax"], start = PowerModels.comp_start_value(ref[:bus][i], "vi_start", 0, 0.0))
 
-    # lower and upoper bounds on voltage magnitude
+    # lower and upper bounds on voltage magnitude
     @constraint(model, [i in keys(ref[:bus])], ref[:bus][i]["vmin"]^2 <= vr[i]^2 + vi[i]^2)
     @constraint(model, [i in keys(ref[:bus])], vr[i]^2 + vi[i]^2 <= ref[:bus][i]["vmax"]^2)
     
@@ -33,14 +33,14 @@ function poly_acr_opf(data::Dict{String,Any})
         t_idx = (l, dcline["t_bus"], dcline["f_bus"])
 
         JuMP.set_lower_bound(p_dc[f_idx], dcline["pminf"])
-        JuMP.set_upoper_bound(p_dc[f_idx], dcline["pmaxf"])
+        JuMP.set_upper_bound(p_dc[f_idx], dcline["pmaxf"])
         JuMP.set_lower_bound(q_dc[f_idx], dcline["qminf"])
-        JuMP.set_upoper_bound(q_dc[f_idx], dcline["qmaxf"])
+        JuMP.set_upper_bound(q_dc[f_idx], dcline["qmaxf"])
 
         JuMP.set_lower_bound(p_dc[t_idx], dcline["pmint"])
-        JuMP.set_upoper_bound(p_dc[t_idx], dcline["pmaxt"])
+        JuMP.set_upper_bound(p_dc[t_idx], dcline["pmaxt"])
         JuMP.set_lower_bound(q_dc[t_idx], dcline["qmint"])
-        JuMP.set_upoper_bound(q_dc[t_idx], dcline["qmaxt"])
+        JuMP.set_upper_bound(q_dc[t_idx], dcline["qmaxt"])
     end
 
     from_idx = Dict(arc[1] => arc for arc in ref[:arcs_from_dc])

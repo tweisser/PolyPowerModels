@@ -1,50 +1,88 @@
 export PolyModel
-export variables, equality, inequality
+export objective, variables, equalities, inequalities
+export PolyObjective
 
 """
-    mutable struct PolyModel{VT, PT} where {VT<:AbstractVariable, PT<:APL}
-        variables::Vector{VT}
-        objective::PolyObjective{PT} 
-        equalities::Vector{PolyEquality{PT}}
-		equality_names::Vector{String}
-        inequalities::Vector{PolyInequality{PT}}
-		inequalitiy_names::Vector{String}
+    mutable struct PolyObjective{PT} where PT<:APL
+        sense::MOI.OptimizationSense
+        func::PT
     end
 
-Represents a polynomial optimization problem. 
+Represents an objective function where sense is Min or Max and func is a polynomial.
 """
-mutable struct PolyModel
-	variables::Vector{<:AbstractVariable}
-    warmstart::Vector{Float64}
-    objective::PolyObjective{PT} 
-    equalities::Vector{PolyEQ{PT}}
-    equality_names::Vector{String}
-    inequalities::Vector{PolyInEQ{PT}}
-	inequalitiy_names::Vector{String} 
+mutable struct PolyObjective{PT <: APL}
+    sense::MOI.OptimizationSense
+    func::PT
 end
+
+function Base.show(io::IO, f::PolyObjective)
+    if f.sense == MOI.MAX_SENSE
+        print(io,"Maximize $(f.func)")
+    else
+        @assert f.sense == MOI.MIN_SENSE
+        print(io,"Minimize $(f.func)")
+    end
+end
+
+"""
+    mutable struct PolyModel <: JuMP.AbstractModel
+
+Model to carry a polynomial JuMP.Model and a list of its polynomial objective, equality and inequality constraints.
+"""
+mutable struct PolyModel <: JuMP.AbstractModel
+    model::JuMP.Model
+    variables::Dict{JuMP.VariableRef, DP.PolyVar}
+    objective::Union{Nothing, PolyObjective} 
+    equalities::Dict{JuMP.ConstraintRef, APL}
+    inequalities::Dict{JuMP.ConstraintRef, APL}
+end
+
+function PolyModel()
+    return PolyModel(Model(), Dict{JuMP.VariableRef, DP.PolyVar}(), nothing, Dict{JuMP.ConstraintRef, APL}(), Dict{JuMP.ConstraintRef, APL}())
+end
+
+JuMP.object_dictionary(pop::PolyModel) = JuMP.object_dictionary(pop.model)
+JuMP.constraint_type(pop::PolyModel) = JuMP.constraint_type(pop.model) 
 
 """
     variables(pop::PolyModel)
 
-Returns the variables used in pop.
+Return the variables used in pop.
 """
 function variables(pop::PolyModel)
-    return pop.variables
+    return keys(pop.variables)
+end
+
+"""
+    polyvar(pop::PolyModel, v::JuMP.VariableRef)
+
+Return polynomial variable associated with JuMP variable referenced by v.
+"""
+function polyvar(pop::PolyModel, v::JuMP.VariableRef)
+    return pop.variables[v]
 end
 
 """
     objective(pop::PolyModel)
 
-Returns the objective of pop.
+Return the objective of pop.
 """
-function JuMP.objective_function(pop::PolyModel)
+function objective(pop::PolyModel)
     return pop.objective
+end
+
+function JuMP.objective_function(pop::PolyModel)
+    return pop.objective.func
+end
+
+function JuMP.objective_sense(pop::PolyModel)
+    return pop.objective.sense
 end
 
 """
     equalities(pop::PolyModel)
 
-Returns the equality constraints of pop.
+Return the equality constraints of pop.
 """
 function equalities(pop::PolyModel)
     return pop.equalities
@@ -53,51 +91,45 @@ end
 """
     inequalities(pop::PolyModel)
 
-Returns the inequality constraints of pop.
+Return the inequality constraints of pop.
 """
 function inequalities(pop::PolyModel)
     return pop.inequalities
 end
 
+"""
+    poly_constraint(pop::PolyModel, cref::JuMP.ConstraintRef)
+
+Return polynomial constraint corresponding to cref.
+"""
+function poly_constraint(pop::PolyModel, cref::JuMP.ConstraintRef)
+
+    if haskey(equalities(pop), cref)
+        return pop.equalities[cref]
+    elseif haskey(inequalities(pop), cref)
+        return pop.inequalities[cref]
+    else
+        @error "no such polynomial constraint"
+    end
+end
 
 function Base.show(io::IO, pop::PolyModel)   
-    println(io, "Polynomial Optimizaion Problem:")
-    print(io, objective(pop))
+    println(io, "Polynomial Optimization Problem:")
+    show(io, objective(pop))
+    println(io,)
     println(io, "subject to")
-    for eq in equalities(pop)
-        print(io, eq)
+    println(io,)
+    for (_, eq) in equalities(pop)
+        println(io, "$eq = 0")
     end
-    for ineq in inequalities(pop)
-        print(io, ineq)
+    println(io,)
+    for (_, ineq) in inequalities(pop)
+        println(io, "$ineq ≥ 0")
     end
+    println(io, )
     println("Variables:")
-    print(variables(pop))
+    for var in variables(pop)
+        println(io, "$var ")
+    end
 end
 
-# JuMP syntax
-function JuMP.set_objective(pop::PolyModel, sense::MOI.OptimizationSense, poly::APL)
-    obj = PolyObjective(sense, poly)
-    objective_function(pop) = obj
-end
-
-function JuMP.add_constraint(pop::PolyModel, poly::PolyEQ, name::Srting="noname")
-	push!(equalities(pop), poly)
-	push!(pop.equality_names, name)
-	return ConstraintRef(pop, length(equalities(pop)), PolyEQShape())
-end
-
-function JuMP.add_constraint(pop::PolyModel, poly::PolyInEQ, name::Srting="noname")
-	push!(inequalities(pop), poly)
-	push!(pop.inequality_names, name)
-	return ConstraintRef(pop, length(inequalities(pop)), PolyInEQShape())
-end
-
-function JuMP.build_constraint(_error::Function, pe::PolyExpr, set::MOI.AbstractScalarSet)
-    if set isa MOI.IsEqual
-		return PolyEQ(pe.func + pe.cons)
-	elseif set isa MOI.GreterThan
-		return PolyInEQ(pe.func + pe.cons)
-	else
-		return PolyInEQ( -pe.func - pe.cons)
-	end
-end

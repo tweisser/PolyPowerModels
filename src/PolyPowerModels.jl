@@ -3,18 +3,19 @@ module PolyPowerModels
 using MathOptInterface
 const MOI = MathOptInterface
 
-using MultivariatePolynomials
-const MP = MultivariatePolynomials
-const APL = AbstractPolynomialLike
-
 import Reexport
+
+#JuMP
 Reexport.@reexport using JuMP
 
-using DynamicPolynomials
+Reexport.@reexport using DynamicPolynomials
+const DP = DynamicPolynomials
+const APL = AbstractPolynomialLike
 
-#include("variables.jl")
-include("objective.jl")
-include("constraints.jl")
 include("model.jl")
+include("jump_ext.jl")
 
+#PowerModels
+Reexport.@reexport using PowerModels
+include("form/poly_acr.jl")
 end # module

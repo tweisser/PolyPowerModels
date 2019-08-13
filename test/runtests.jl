@@ -1,5 +1,5 @@
 using PolyPowerModels
 using Test
 
-include("model.jl")
-
+include("variable.jl")
+#include("model.jl")
