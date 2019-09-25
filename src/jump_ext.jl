@@ -28,12 +28,14 @@ function JuMP.add_variable(m::PolyModel, v::ScalarVariable, name::String="")
     if isempty(name)
         name = "default"*string(gensym())[3:end]
     else
+        name = replace(name, "(" => "")
+        name = replace(name, ")" => "")
+
         set_name(vref, name)
     end
     m.variables[vref] = PolyVar{true}(name)
     return vref
 end
-
 
 # convert JuMP expressions into polynomials
 function poly(pop::PolyModel, func::Real)
@@ -59,6 +61,14 @@ function poly(pop::PolyModel, q::JuMP.GenericQuadExpr)
     end
     return p 
 end
+
+#= TODO
+function poly(pop::PolyModel, nlexpr::JuMP._NonlinearExprData)
+    nd = nlexpr.nd
+    const_values = nlexpr.const_values
+    
+end
+=#
 
 function JuMP.set_objective(pop::PolyModel, sense::MOI.OptimizationSense, func::Union{JuMP.AbstractJuMPScalar, Real})
     pop.objective = PolyObjective(sense, poly(pop, func))
@@ -95,4 +105,39 @@ function JuMP.add_constraint(pop::PolyModel, c::AbstractConstraint)
     return cref
 end
 
+function JuMP.optimize!(pop::PolyModel, optimizer::OptimizerFactory)
+    optimize!(pop.model, optimizer)
+end
+
+function JuMP.optimize!(pop::PolyModel)
+    optimize!(pop.model)
+end
+
+#NLconstraints
+function JuMP._parse_NL_expr_runtime(m::PolyModel, x, tape, parent, values)
+    return JuMP._parse_NL_expr_runtime(m.model, x, tape, parent, values)
+end
+
+function JuMP._init_NLP(m::PolyModel)
+    return JuMP._init_NLP(m.model)
+end
+
+function JuMP._check_expr(m::PolyModel, ex::Expr)
+    return JuMP._check_expr(m.model, ex::Expr)
+end
+
+
+function JuMP.NonlinearExpression(m::PolyModel, ex::JuMP._NonlinearExprData)
+    JuMP._init_NLP(m)
+    nldata::JuMP._NLPData = m.model.nlp_data
+    push!(nldata.nlexpr, ex)
+    return NonlinearExpression(m.model, length(nldata.nlexpr))
+end
+
+function _NonlinearExprData(m::Model, ex::Expr)
+    _init_NLP(m)
+    _check_expr(m, ex)
+    nd, values = _Derivatives.expr_to_nodedata(ex,m.model.nlp_data.user_operators)
+    return _NonlinearExprData(nd, values)
+end
 

@@ -1,6 +1,7 @@
 export PolyModel
-export objective, variables, equalities, inequalities
+export objective, variables
 export PolyObjective
+export polyvar, polyconstraint
 
 """
     mutable struct PolyObjective{PT} where PT<:APL
@@ -35,10 +36,26 @@ mutable struct PolyModel <: JuMP.AbstractModel
     objective::Union{Nothing, PolyObjective} 
     equalities::Dict{JuMP.ConstraintRef, APL}
     inequalities::Dict{JuMP.ConstraintRef, APL}
+    moi_backend
+end
+
+function PolyModel(model::JuMP.Model, variables::Dict{JuMP.VariableRef, DP.PolyVar}, objective::Union{Nothing, PolyObjective}, equalities::Dict{JuMP.ConstraintRef, APL}, inequalities::Dict{JuMP.ConstraintRef, APL})
+    return PolyModel(model, variables, objective, equalities, inequalities, model.moi_backend)
 end
 
 function PolyModel()
-    return PolyModel(Model(), Dict{JuMP.VariableRef, DP.PolyVar}(), nothing, Dict{JuMP.ConstraintRef, APL}(), Dict{JuMP.ConstraintRef, APL}())
+    m = Model()
+    return PolyModel(m, Dict{JuMP.VariableRef, DP.PolyVar}(), nothing, Dict{JuMP.ConstraintRef, APL}(), Dict{JuMP.ConstraintRef, APL}(), m.moi_backend)
+end
+
+function PolyModel(optimizer::JuMP.OptimizerFactory)
+    m = Model(optimizer)
+    return PolyModel(m, Dict{JuMP.VariableRef, DP.PolyVar}(), nothing, Dict{JuMP.ConstraintRef, APL}(), Dict{JuMP.ConstraintRef, APL}(), m.moi_backend)
+end
+
+
+function PolyModel(model::JuMP.Model)
+    return PolyModel(model, Dict{JuMP.VariableRef, DP.PolyVar}(), nothing, Dict{JuMP.ConstraintRef, APL}(), Dict{JuMP.ConstraintRef, APL}(), model.moi_backend)
 end
 
 JuMP.object_dictionary(pop::PolyModel) = JuMP.object_dictionary(pop.model)
@@ -50,7 +67,7 @@ JuMP.constraint_type(pop::PolyModel) = JuMP.constraint_type(pop.model)
 Return the variables used in pop.
 """
 function variables(pop::PolyModel)
-    return keys(pop.variables)
+    return pop.variables
 end
 
 """
@@ -84,7 +101,7 @@ end
 
 Return the equality constraints of pop.
 """
-function equalities(pop::PolyModel)
+function SemialgebraicSets.equalities(pop::PolyModel)
     return pop.equalities
 end
 
@@ -93,7 +110,7 @@ end
 
 Return the inequality constraints of pop.
 """
-function inequalities(pop::PolyModel)
+function SemialgebraicSets.inequalities(pop::PolyModel)
     return pop.inequalities
 end
 
@@ -128,8 +145,7 @@ function Base.show(io::IO, pop::PolyModel)
     end
     println(io, )
     println("Variables:")
-    for var in variables(pop)
+    for (_, var) in variables(pop)
         println(io, "$var ")
     end
 end
-

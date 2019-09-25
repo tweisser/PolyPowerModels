@@ -1,5 +1,10 @@
 using PolyPowerModels
+using Ipopt
+using MosekTools
+
 using Test
 
-include("variable.jl")
 #include("model.jl")
+include("acr_test.jl")
+
+

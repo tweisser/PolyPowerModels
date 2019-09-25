@@ -1,0 +1,42 @@
++ set -e
++ echo Checking:
++ pwd
++ hostname
++ date
++ env
++ sort
++ echo Starting:
++ julia --project=. run_acopf.jl
+┌ Warning: `getindex(df::DataFrame, col_ind::ColumnIndex)` is deprecated, use `df[!, col_ind]` instead.
+│   caller = top-level scope at read_data.jl:8
+└ @ Core ~/.julia/dev/PolyPowerModels/func/read_data.jl:8
+┌ Warning: `getindex(df::DataFrame, col_ind::ColumnIndex)` is deprecated, use `df[!, col_ind]` instead.
+│   caller = top-level scope at read_data.jl:9
+└ @ Core ~/.julia/dev/PolyPowerModels/func/read_data.jl:9
+┌ Warning: `getindex(df::DataFrame, col_ind::ColumnIndex)` is deprecated, use `df[!, col_ind]` instead.
+│   caller = top-level scope at read_data.jl:10
+└ @ Core ~/.julia/dev/PolyPowerModels/func/read_data.jl:10
+┌ Warning: `getindex(df::DataFrame, col_ind::ColumnIndex)` is deprecated, use `df[!, col_ind]` instead.
+│   caller = top-level scope at read_data.jl:11
+└ @ Core ~/.julia/dev/PolyPowerModels/func/read_data.jl:11
+┌ Warning: `getindex(df::DataFrame, col_ind::ColumnIndex)` is deprecated, use `df[!, col_ind]` instead.
+│   caller = top-level scope at read_data.jl:12
+└ @ Core ~/.julia/dev/PolyPowerModels/func/read_data.jl:12
+ERROR: LoadError: Mosek.MosekError(1051, "Out of space.")
+Stacktrace:
+ [1] optimize(::Mosek.Task) at /home/tweisser/.julia/packages/Mosek/43Z2H/src/msk_functions.jl:5490
+ [2] optimize!(::MosekModel) at /home/tweisser/.julia/packages/MosekTools/syj0H/src/MosekTools.jl:259
+ [3] optimize!(::MathOptInterface.Bridges.LazyBridgeOptimizer{MosekModel,MathOptInterface.Utilities.UniversalFallback{MathOptInterface.Bridges.AllBridgedConstraints{Float64}}}) at /home/tweisser/.julia/packages/MathOptInterface/C3lip/src/Bridges/bridgeoptimizer.jl:73
+ [4] optimize!(::MathOptInterface.Utilities.CachingOptimizer{MathOptInterface.AbstractOptimizer,MathOptInterface.Utilities.UniversalFallback{JuMP._MOIModel{Float64}}}) at /home/tweisser/.julia/packages/MathOptInterface/C3lip/src/Utilities/cachingoptimizer.jl:170
+ [5] #optimize!#79(::Bool, ::Bool, ::Function, ::Model, ::OptimizerFactory) at /home/tweisser/.julia/packages/JuMP/ibcEh/src/optimizer_interface.jl:132
+ [6] optimize! at /home/tweisser/.julia/packages/JuMP/ibcEh/src/optimizer_interface.jl:105 [inlined]
+ [7] macro expansion at ./util.jl:213 [inlined]
+ [8] chordal_SOS(::Dict{String,Any}, ::Int64) at /home/tweisser/.julia/dev/PolyPowerModels/func/build_model_pm.jl:10
+ [9] top-level scope at /home/tweisser/.julia/dev/PolyPowerModels/run_acopf.jl:63 [inlined]
+ [10] top-level scope at ./none:0
+ [11] include at ./boot.jl:326 [inlined]
+ [12] include_relative(::Module, ::String) at ./loading.jl:1038
+ [13] include(::Module, ::String) at ./sysimg.jl:29
+ [14] exec_options(::Base.JLOptions) at ./client.jl:267
+ [15] _start() at ./client.jl:436
+in expression starting at /home/tweisser/.julia/dev/PolyPowerModels/run_acopf.jl:49

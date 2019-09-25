@@ -12,8 +12,14 @@ Reexport.@reexport using DynamicPolynomials
 const DP = DynamicPolynomials
 const APL = AbstractPolynomialLike
 
+#SemialgebraicSets
+Reexport.@reexport using SemialgebraicSets
+
 include("model.jl")
 include("jump_ext.jl")
+
+Reexport.@reexport using SumOfSquares
+include("sos.jl")
 
 #PowerModels
 Reexport.@reexport using PowerModels
