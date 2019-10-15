@@ -8,11 +8,13 @@ using DynamicPolynomials
 using SumOfSquares
 
 
-include("polymodel.jl")
-include("certificates.jl")
+include("models/polymodel.jl")
+include("methods/certificates.jl")
+include("models/ccpolymodel.jl")
+include("methods/approx.jl")
 
 import Reexport
 Reexport.@reexport using PowerModels
-include("polypowermodel.jl")
+include("models/polypowermodel.jl")
 
 end
