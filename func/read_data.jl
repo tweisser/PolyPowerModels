@@ -35,6 +35,7 @@ else
    num_sad = length(instances_sad)
 end
 
+
 # Result initialization
 typ_results = zeros(num_typ,2)
 api_results = zeros(num_api,2)

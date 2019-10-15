@@ -14,9 +14,11 @@ function output(num, instances, results)
 
 end
 
-function output_dict!(summary, instance, result)
-    kkeys = [:time_model, :time_solve, :termination_status, :upper_bound, :lower_bound, :optimality_gap]
-    summary[instance] = Dict(kkeys[i] => result[i] for i = 1:6)
+function output_dict!(summary, instance, result, degree)
+    kkeys = [:time_model, :time_solve, :termination_status, :upper_bound, :lower_bound, :optimality_gap, :Ipopt_status]
+    summary[instance] = Dict(kkeys[i] => result[i] for i = 1:7)
+    
+    save("/home/tweisser/.julia/dev/PolyPowerModels/results/pglib300/level"*string(Int(degree/2))*"/"*instance*".jld", "dict", summary[instance] )
 
     return summary
 end

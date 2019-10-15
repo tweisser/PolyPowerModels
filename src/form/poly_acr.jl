@@ -12,12 +12,12 @@ function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
     PowerModels.standardize_cost_terms!(data, order=2)
     ref = PowerModels.build_ref(data)[:nw][0]
 
-    @variable(model, -ref[:bus][i]["vmax"] <= vr[i in keys(ref[:bus])] <= ref[:bus][i]["vmax"], start = PowerModels.comp_start_value(ref[:bus][i], "vr_start", 0, 1.0))
-    @variable(model, -ref[:bus][i]["vmax"] <= vi[i in keys(ref[:bus])] <= ref[:bus][i]["vmax"], start = PowerModels.comp_start_value(ref[:bus][i], "vi_start", 0, 0.0))
+    @variable(model, -ref[:bus][i]["vmax"] <= vr[i in keys(ref[:bus])] <= ref[:bus][i]["vmax"], start = PowerModels.comp_start_value(ref[:bus][i], "vr_start", 0, 1.0)) #ok
+    @variable(model, -ref[:bus][i]["vmax"] <= vi[i in keys(ref[:bus])] <= ref[:bus][i]["vmax"], start = PowerModels.comp_start_value(ref[:bus][i], "vi_start", 0, 0.0)) #ok
 
     # lower and upper bounds on voltage magnitude
-    @constraint(model, [i in keys(ref[:bus])], ref[:bus][i]["vmin"]^2 <= vr[i]^2 + vi[i]^2)
-    @constraint(model, [i in keys(ref[:bus])], vr[i]^2 + vi[i]^2 <= ref[:bus][i]["vmax"]^2)
+    @constraint(model, [i in keys(ref[:bus])], ref[:bus][i]["vmin"]^2 <= vr[i]^2 + vi[i]^2) #ok
+    @constraint(model, [i in keys(ref[:bus])], vr[i]^2 + vi[i]^2 <= ref[:bus][i]["vmax"]^2) #ok
     
     @variable(model, ref[:gen][i]["pmin"] <= pg[i in keys(ref[:gen])] <= ref[:gen][i]["pmax"])
     @variable(model, ref[:gen][i]["qmin"] <= qg[i in keys(ref[:gen])] <= ref[:gen][i]["qmax"])
@@ -50,8 +50,8 @@ function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
     )
 
     for (i,bus) in ref[:ref_buses]
-        # Refrence Bus
-        @constraint(model, vi[i] == 0)
+        # Reference Bus
+        @constraint(model, vi[i] == 0) #ok
     end
 
     for (i,bus) in ref[:bus]
@@ -65,7 +65,7 @@ function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
             sum(pg[g] for g in ref[:bus_gens][i]) -
             sum(load["pd"] for load in bus_loads) -
             sum(shunt["gs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2)
-        )
+        ) #ok
 
         @constraint(model,
             sum(q[a] for a in ref[:bus_arcs][i]) +
@@ -73,7 +73,7 @@ function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
             sum(qg[g] for g in ref[:bus_gens][i]) -
             sum(load["qd"] for load in bus_loads) +
             sum(shunt["bs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2)
-        )
+        ) #ok
     end
 
     for (i,branch) in ref[:branch]
@@ -97,20 +97,21 @@ function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
         b_fr = branch["b_fr"]
         g_to = branch["g_to"]
         b_to = branch["b_to"]
-        tm = branch["tap"]^2
+        tm = branch["tap"]
 
         # AC Line Flow Constraints
-        @constraint(model, p_fr ==  (g+g_fr)/tm^2*(vr_fr^2 + vi_fr^2) + (-g*tr+b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr-g*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to) )
-        @constraint(model, q_fr == -(b+b_fr)/tm^2*(vr_fr^2 + vi_fr^2) - (-b*tr-g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-g*tr+b*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to) )
+
+        @constraint(model, p_fr ==  (g+g_fr)/tm^2*(vr_fr^2 + vi_fr^2) + (-g*tr+b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr-g*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to) ) #ok
+        @constraint(model, q_fr == -(b+b_fr)/tm^2*(vr_fr^2 + vi_fr^2) - (-b*tr-g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-g*tr+b*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to) ) #ok
         
-        @constraint(model, p_to ==  (g+g_to)*(vr_to^2 + vi_to^2) + (-g*tr-b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr+g*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to)) )
-        @constraint(model, q_to == -(b+b_to)*(vr_to^2 + vi_to^2) - (-b*tr+g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-g*tr-b*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to)) )
-        
+        @constraint(model, p_to ==  (g+g_to)*(vr_to^2 + vi_to^2) + (-g*tr-b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr+g*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to)) ) #ok
+        @constraint(model, q_to == -(b+b_to)*(vr_to^2 + vi_to^2) - (-b*tr+g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-g*tr-b*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to)) ) #ok
+
         # Phase Angle Difference Limit
-        @constraint(model, (vi_fr*vr_to - vr_fr*vi_to) <= tan(branch["angmax"])*(vr_fr*vr_to + vi_fr*vi_to))
-        @constraint(model, (vi_fr*vr_to - vr_fr*vi_to) >= tan(branch["angmin"])*(vr_fr*vr_to + vi_fr*vi_to))
+        @constraint(model, (vi_fr*vr_to - vr_fr*vi_to) <= tan(branch["angmax"])*(vr_fr*vr_to + vi_fr*vi_to)) #ok
+        @constraint(model, (vi_fr*vr_to - vr_fr*vi_to) >= tan(branch["angmin"])*(vr_fr*vr_to + vi_fr*vi_to)) #ok
         
-        # Apoparent Power Limit, From and To
+        # Apparent Power Limit, From and To
         @constraint(model, p[f_idx]^2 + q[f_idx]^2 <= branch["rate_a"]^2)
         @constraint(model, p[t_idx]^2 + q[t_idx]^2 <= branch["rate_a"]^2)
     end
@@ -123,10 +124,11 @@ function poly_acr_opf(data::Dict{String,Any}, model=PolyModel())
         @constraint(model, (1-dcline["loss1"])*p_dc[f_idx] + (p_dc[t_idx] - dcline["loss0"]) == 0)
     end
 
+
     return model
 end
 
-
+#=
 function poly_acr_opf_deg4(data::Dict{String,Any}, model=PolyModel())
     @assert !haskey(data, "multinetwork")
     @assert !haskey(data, "conductors")
@@ -239,12 +241,12 @@ function poly_acr_opf_deg4(data::Dict{String,Any}, model=PolyModel())
         
     end
 
-    @NLconstraint(model, ref[:gen][i]["pmin"] <= pg[i in keys(ref[:gen])] <= ref[:gen][i]["pmax"])
-    @NLconstraint(model, ref[:gen][i]["qmin"] <= qg[i in keys(ref[:gen])] <= ref[:gen][i]["qmax"])
+    @constraint(model, ref[:gen][i]["pmin"] <= pg[i in keys(ref[:gen])] <= ref[:gen][i]["pmax"])
+    @constraint(model, ref[:gen][i]["qmin"] <= qg[i in keys(ref[:gen])] <= ref[:gen][i]["qmax"])
 
 
     from_idx = Dict(arc[1] => arc for arc in ref[:arcs_from_dc])
-    @NLobjective(model, Min,
+    @objective(model, Min,
         sum(gen["cost"][1]*pg[i]^2 + gen["cost"][2]*pg[i] + gen["cost"][3] for (i,gen) in ref[:gen]) +
         sum(dcline["cost"][1]*p_dc[from_idx[i]]^2 + dcline["cost"][2]*p_dc[from_idx[i]] + dcline["cost"][3] for (i,dcline) in ref[:dcline])
     )
@@ -257,4 +259,4 @@ function smitha_constraint_deg4(data, model)
 
     return model
 end
-
+=#
