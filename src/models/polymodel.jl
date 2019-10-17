@@ -1,8 +1,13 @@
-export PolyModel, objective_function, objective_sense, constraints, add_constraint!, semialgebraic_set
+export PolyModel 
+export objective_function, objective_sense, constraints
+export add_constraint!, set_objective!, semialgebraic_set
 export PolyEq, PolyGeq, PolyLeq, PolyConstraint
+export invert
 
-mutable struct PolyModel 
-    sense::Union{Nothing, Symbol}
+abstract type AbstractPolyModel end
+
+mutable struct PolyModel <: AbstractPolyModel
+    opt_sense::Union{Nothing, Symbol}
     objective::MP.AbstractPolynomialLike
     set::BasicSemialgebraicSet
     vars::Vector{PolyVar{true}}
@@ -13,10 +18,10 @@ function PolyModel()
     return PolyModel(nothing, convert(Polynomial{true,Float64},0), BasicSemialgebraicSet(AlgebraicSet{Float64,Polynomial{true,Float64}}(), Polynomial{true,Float64}[]), PolyVar{true}[],Dict())
 end
 
-Base.broadcastable(m::PolyModel) = Ref(m)
+Base.broadcastable(m::AbstractPolyModel) = Ref(m)
 
-objective_function(m::PolyModel) = m.objective
-objective_sense(m::PolyModel) = m.sense
+objective_function(m::AbstractPolyModel) = m.objective
+objective_sense(m::AbstractPolyModel) = m.opt_sense
 constraints(m::PolyModel) = m.set
 MP.variables(m::PolyModel) = m.vars
 
@@ -51,8 +56,8 @@ function add_variable!(m::PolyModel, var::PolyVar{true})
     return var
 end
 
-function add_objective!(m::PolyModel, sense::Symbol, obj::MP.AbstractPolynomialLike)
-    m.sense = sense
+function set_objective!(m::PolyModel, sense::Symbol, obj::MP.AbstractPolynomialLike)
+    m.opt_sense = sense
     m.objective = obj
     add_variables!(m, variables(obj))
     return m.objective
@@ -65,7 +70,7 @@ mutable struct PolyEq <: PolyConstraint
 end
 
 function Base.show(io::IO, eq::PolyEq) 
-    println(io, "$(eq.func) = 0")
+    print(io, "$(eq.func) = 0")
 end
 
 mutable struct PolyLeq <: PolyConstraint
@@ -73,7 +78,7 @@ mutable struct PolyLeq <: PolyConstraint
 end
 
 function Base.show(io::IO, eq::PolyLeq) 
-    println(io, "$(eq.func) ≤ 0")
+    print(io, "$(eq.func) ≤ 0")
 end
 
 mutable struct PolyGeq <: PolyConstraint
@@ -81,7 +86,17 @@ mutable struct PolyGeq <: PolyConstraint
 end
 
 function Base.show(io::IO, eq::PolyGeq) 
-    println(io, "$(eq.func) ≥ 0")
+    print(io, "$(eq.func) ≥ 0")
+end
+
+function invert(pc::PolyConstraint)
+    if pc isa PolyEq
+        return PolyEq(pc.func)
+    elseif pc isa PolyLeq
+        return PolyGeq(pc.func)
+    else 
+        return PolyLeq(pc.func)
+    end
 end
 
 function add_equality!(m::PolyModel, con::MP.AbstractPolynomialLike)
@@ -131,6 +146,5 @@ function semialgebraic_set(constraints::Vector{<:PolyConstraint})
    end
    return set
 end
-
 
 

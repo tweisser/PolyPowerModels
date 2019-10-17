@@ -1,7 +1,9 @@
-export PolyPowerModel, model, constraints, objective_function
+export PolyPowerModel, model
 export pop_opf, pop_opf_deg2
 
-mutable struct PolyPowerModel
+abstract type AbstractPolyPowerModel end
+
+mutable struct PolyPowerModel <: AbstractPolyPowerModel 
     model::PolyModel
     data::Dict{}
     ref::Dict{} 
@@ -9,14 +11,14 @@ mutable struct PolyPowerModel
     solution::Dict{}
 end
 
-function Base.show(io::IO, pm::PolyPowerModel)
+function Base.show(io::IO, pm::AbstractPolyPowerModel)
     println(io, pm.model)
 end
 
-model(pm::PolyPowerModel) = pm.model
-MP.variables(pm::PolyPowerModel) = pm.var
-constraints(pm::PolyPowerModel) = pm.model.set
-objective_function(pm::PolyPowerModel) = objective_function(pm.model)
+model(pm::AbstractPolyPowerModel) = pm.model
+MP.variables(pm::AbstractPolyPowerModel) = pm.var
+constraints(pm::AbstractPolyPowerModel) = constraints(pm.model)
+objective_function(pm::AbstractPolyPowerModel) = objective_function(pm.model)
 
 
 function new_polyvar(name)
@@ -30,10 +32,21 @@ function new_polyvar()
     return new_polyvar(name)
 end
 
+"""
+    fl_sum(vector)
+
+Compute the floating point number sum(vector) if the type of vector cannot be inferred
+"""
 function fl_sum(vector)
     return mapreduce(x->x, +, vector, init = 0.0)
 end
 
+"""
+    pop_opf(data::Dict{String, Any})
+
+Turn PowerModels data into the AC OPF represented as a quartic polynomial optimization problem. 
+DC lines are not supported.
+"""
 function pop_opf(data::Dict{String, Any})
 
     @assert !haskey(data, "multinetwork")
@@ -122,7 +135,7 @@ function pop_opf(data::Dict{String, Any})
 
         # thermal limits
         add_constraint!( model, p[f_idx]^2 + q[f_idx]^2, :leq, branch["rate_a"]^2 )
-        add_constraint!( model, p[t_idx]^2 + q[t_idx]^2, :leq, branch["rate_a"]^2)
+        add_constraint!( model, p[t_idx]^2 + q[t_idx]^2, :leq, branch["rate_a"]^2 )
     end
 
     for (l,i,j) in ref[:arcs]
@@ -183,7 +196,7 @@ function pop_opf(data::Dict{String, Any})
     end
 
     # objective
-    add_objective!( model, :Min, sum(gen["cost"][1]*pg[i]^2 + gen["cost"][2]*pg[i] + gen["cost"][3] for (i,gen) in ref[:gen]) )
+    set_objective!( model, :Min, sum(gen["cost"][1]*pg[i]^2 + gen["cost"][2]*pg[i] + gen["cost"][3] for (i,gen) in ref[:gen]) )
 
     var = Dict(:vr => vr, :vi => vi, :p => p, :q => q, :pg => pg, :qg => qg)
 
@@ -202,6 +215,11 @@ function relax!(pm::PolyPowerModel, cert::AbstractCertificate, solver_factory)
     return pm
 end
 
+"""
+    pop_opf_deg2(data::Dict{String, Any})
+
+Turn PowerModels data into the AC OPF represented as a quadratic polynomial optimization problem, by introducing auxilliary variables where necessary.
+"""
 
 function pop_opf_deg2(data::Dict{String, Any})
 
@@ -233,22 +251,6 @@ function pop_opf_deg2(data::Dict{String, Any})
         # voltage magnitude constraints
         add_constraint!(model, ref[:bus][key]["vmin"]^2, :leq,  vr[key]^2 + vi[key]^2 )
         add_constraint!(model,  vr[key]^2 + vi[key]^2, :leq, ref[:bus][key]["vmax"]^2 )
-
-        # offdiagonal constraints 
-        #    wr_min, wr_max, wi_min, wi_max = ref_calc_voltage_product_bounds(ref(pm, nw, :buspairs), cnd)
-        #   for (i,j) in ids(pm, nw, :buspairs)
-        #       wi_idx = lookup_w_index[i]
-        #       wj_idx = lookup_w_index[j]
-        #
-        #        if bounded
-        #            JuMP.set_upper_bound(WR[wi_idx, wj_idx], wr_max[(i,j)])
-        #            JuMP.set_lower_bound(WR[wi_idx, wj_idx], wr_min[(i,j)])
-        #
-        #            JuMP.set_upper_bound(WI[wi_idx, wj_idx], wi_max[(i,j)])
-        #            JuMP.set_lower_bound(WI[wi_idx, wj_idx], wi_min[(i,j)])
-        #        end
-        #    end
-
 
     end
 
@@ -343,7 +345,7 @@ function pop_opf_deg2(data::Dict{String, Any})
     end
 
     # objective
-    add_objective!( model, :Min, sum(gen["cost"][1]*pg[i]^2 + gen["cost"][2]*pg[i] + gen["cost"][3] for (i,gen) in ref[:gen]) )
+    set_objective!( model, :Min, sum(gen["cost"][1]*pg[i]^2 + gen["cost"][2]*pg[i] + gen["cost"][3] for (i,gen) in ref[:gen]) )
 
     var = Dict(:vr => vr, :vi => vi, :p => p, :q => q, :pg => pg, :qg => qg)
 

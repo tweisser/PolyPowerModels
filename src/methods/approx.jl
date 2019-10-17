@@ -51,14 +51,46 @@ function poly_projection_approx(
     p = @variable m [i=1:length(moments)]
     @objective m Min sum(p[i]*moments[i] for i= 1:length(moments))
 
-    poly = sum(p[i]*mons[i] for i= 1:length(moments)) 
-    @constraint m poly - 1 in SOSCone() domain = K
-    @constraint m poly in SOSCone() domain = B
+    poly = sum(p[i]*mons[i] for i= 1:length(moments))
+
+    putinar(poly-1, approx_deg, K, model = m)
+    putinar(poly, approx_deg, B, model = m)
 
     optimize!(m)
     
     return value(poly), termination_status(m)
 end
+
+function poly_projection_approx(KK::AbstractSemialgebraicSet, 
+                                projection_vars_with_domain::Dict{PolyVar{true}, Vector{Float64}},
+                                approx_deg::Int, 
+                                factory)
+    projection_vars = sort!(collect(keys(projection_vars_with_domain)), rev=true)
+    projection_space = [projection_vars_with_domain[var] for var in projection_vars]
+    
+    mom_fun = lebmom(projection_space)
+    mons = monomials(projection_vars, 0:approx_deg)
+    moments = mom_fun.(mons.Z)
+
+    B = semialgebraic_box(projection_vars_with_domain)
+    K = intersect(B, KK)
+
+    m = SOSModel(factory)
+    p = @variable m [i=1:length(moments)]
+    @objective m Min sum(p[i]*moments[i] for i= 1:length(moments))
+
+    poly = sum(p[i]*mons[i] for i= 1:length(moments))
+    putinar(poly-1, approx_deg, K, model = m)
+    putinar(poly, approx_deg, B, model = m)
+
+    optimize!(m)
+    
+    return value(poly), termination_status(m)
+end
+
+
+
+
 
 function partial_integration(poly, intvars, mvec, moments)
     coefs = convert(Vector{Float64}, copy(poly.a))
@@ -124,8 +156,8 @@ function poly_probability_approx(constraint::PolyPowerModels.PolyConstraint,
     poly = sum(p[i]*mons[i] for i= 1:length(moments))
     stokes_pol = sum(s[i]*multipliers[i] for i= 1:length(multipliers))
 
-    @constraint m poly - stokes_pol - 1 in SOSCone() domain = K
-    @constraint m poly in SOSCone() domain = B
+    putinar(poly-stokes_pol - 1, approx_deg, K, model = m)
+    putinar(poly, approx_deg, B, model = m)
 
     optimize!(m)
     

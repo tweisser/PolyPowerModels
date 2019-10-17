@@ -16,5 +16,6 @@ include("methods/approx.jl")
 import Reexport
 Reexport.@reexport using PowerModels
 include("models/polypowermodel.jl")
+include("models/ccpolypowermodel.jl")
 
 end
