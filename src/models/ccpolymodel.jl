@@ -147,6 +147,7 @@ function set_objective!(m::CCPolyModel, sense::Symbol, obj::AbstractPolynomialLi
 end
 
 function add_joint_chance_constraint!(m::CCPolyModel, pcv::Vector{PolyConstraint}, sense::Symbol, sp::Float64)
+    normalize!.(pcv) 
     if sense == :leq
         jct = JCCLeq(pcv, sp)
     elseif sense == :geq
@@ -159,6 +160,7 @@ function add_joint_chance_constraint!(m::CCPolyModel, pcv::Vector{PolyConstraint
 end
 
 function add_to_joint_chance_constraint!(m::CCPolyModel, id_con::Int,  pc::PolyConstraint)
+    normalize!(pc) 
     if length(m.joint_chance_constraints) < id_con
         @error("Joint chance constraint does not exits.")
     else
@@ -167,7 +169,8 @@ function add_to_joint_chance_constraint!(m::CCPolyModel, id_con::Int,  pc::PolyC
 end
 
 function add_chance_constraint!(m::CCPolyModel, pc::PolyConstraint, sense::Symbol,  sp::Float64)
-     if sense == :leq
+    normalize!(pc) 
+    if sense == :leq
         ct = CCLeq(pc, sp)
     elseif sense == :geq
         ct = CCGeq(pc, sp)

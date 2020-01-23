@@ -99,6 +99,12 @@ function invert(pc::PolyConstraint)
     end
 end
 
+function normalize!(pc::PolyConstraint)
+    mc = maximum(abs.(coefficients(pc.func)))
+    pc.func = pc.func/mc
+    return pc
+end
+
 function add_equality!(m::PolyModel, con::MP.AbstractPolynomialLike)
     add_variables!(m, variables(con))
     addequality!(constraints(m), con)

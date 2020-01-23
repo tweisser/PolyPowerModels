@@ -11,11 +11,13 @@ using SumOfSquares
 include("models/polymodel.jl")
 include("methods/certificates.jl")
 include("models/ccpolymodel.jl")
-include("methods/approx.jl")
 
-import Reexport
-Reexport.@reexport using PowerModels
+#import Reexport
+#Reexport.@reexport
+using PowerModels
+
 include("models/polypowermodel.jl")
 include("models/ccpolypowermodel.jl")
+include("methods/approx.jl")
 
 end
