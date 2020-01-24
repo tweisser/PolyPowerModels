@@ -1,0 +1,152 @@
+export PolyModel, set_objective!, add_constraint!
+export MAX, MIN, LT, GT, EQ
+export sense, constraints, constraint_names, constraint_function, objective_function, objective_sense
+
+"""
+PolyObj
+"""
+
+abstract type AbstractOptimizationSense end
+struct MAX_sense <: AbstractOptimizationSense end  
+struct MIN_sense <: AbstractOptimizationSense end  
+
+const MAX = MAX_sense()
+const MIN = MIN_sense()
+
+mutable struct PolyObj 
+    sense::AbstractOptimizationSense
+    func::PT
+end
+
+sense(obj::PolyObj) = obj.sense
+objective_function(obj::PolyObj) = obj.func
+sense(obj::Nothing) = nothing
+objective_function(obj::Nothing) = nothing
+
+function Base.show(io::IO, obj::PolyObj)
+    if sense(obj) == MAX
+        print(io, "Maximize $(objective_function(obj))")
+    elseif sense(obj) == MIN
+        print(io, "Minimize $(objective_function(obj))")
+    end
+end
+
+"""
+PolyCon
+"""
+
+abstract type AbstractConstraintSense end
+struct LT_sense <: AbstractConstraintSense end
+struct GT_sense <: AbstractConstraintSense end
+struct EQ_sense <: AbstractConstraintSense end
+
+const LT = LT_sense()
+const GT = GT_sense()
+const EQ = EQ_sense()
+
+Base.broadcastable(sense::AbstractConstraintSense) = Ref(sense)
+
+mutable struct PolyCon
+    sense:: AbstractConstraintSense
+    func::PT
+end
+
+sense(con::PolyCon) = con.sense
+constraint_function(con::PolyCon) = con.func
+
+function Base.show(io::IO, con::PolyCon)
+    if sense(con) == LT
+        print(io, "$(constraint_function(con)) ≤ 0")
+    elseif sense(con) == GT
+        print(io, "$(constraint_function(con)) ≥ 0")
+    elseif sense(con) == EQ
+        print(io, "$(constraint_function(con)) = 0")
+    end
+end
+
+"""
+    PolyModel(::Union{Nothing, PolyObj}, ::Vector{PolyCon}, ::Vector{String})
+
+Abstract model to represent a Polynomial Optimization Problem. 
+
+Self-explanotary functions:
+
+-objective(m::PolyModel)
+-objective_function(m::PolyModel)
+-objective_sense(m::PolyModel)
+-constraints(m::PolyModel)
+-constraint_names(m::PolyModel)
+
+"""
+mutable struct PolyModel
+    objective::Union{Nothing, PolyObj}
+    constraints::Vector{PolyCon}
+    constraint_names::Vector{String}
+end
+
+Base.broadcastable(m::PolyModel) = Ref(m)
+
+objective(m::PolyModel) = m.objective
+objective_function(m::PolyModel) = objective_function(objective(m))
+objective_sense(m::PolyModel) = sense(objective(m))
+constraints(m::PolyModel) = m.constraints
+constraint_names(m::PolyModel) = m.constraint_names
+
+function Base.show(io::IO, m::PolyModel)
+    if objective(m) == nothing
+        println(io, "Feasibility problem")
+    else
+        println(io, objective(m))
+    end
+    println(io, "s.t.")
+    for (name, con) in zip(constraint_names(m), constraints(m))
+        println(io, "$name : $con")
+    end
+end
+
+PolyModel() = PolyModel(nothing, PolyCon[], String[])
+
+"""
+    set_objective!(::PolyModel, ::AbstractOptimizationSense, ::MP.AbstractPolynomialLike)
+
+"""
+function set_objective!(m::PolyModel, sense::AbstractOptimizationSense, obj::MP.AbstractPolynomialLike)
+    m.objective = PolyObj(sense, obj)
+end
+
+function _normalize(pc::MP.AbstractPolynomialLike)
+    mc = maximum(abs.(coefficients(pc)))
+    return pc/mc
+end
+
+function add_constraint!(m::PolyModel, fun1::PT, sense::AbstractConstraintSense, fun2::PT; normalize = false)
+    if normalize
+        f = _normalize(fun1 - fun2)
+    else
+        f = fun1 - fun2
+    end
+    push!(constraint_names(m), "")
+    push!(constraints(m), PolyCon(sense, f))
+    return constraints(m)[end]
+end
+
+function add_constraint!(m::PolyModel, name::String, fun1::PT, sense::AbstractConstraintSense, fun2::PT; normalize = false)
+    if normalize
+        f = normalize(fun1 - fun2)
+    else
+        f = fun1 - fun2
+    end
+    push!(constraint_names(m), name)
+    push!(constraints(m), PolyCon(sense, f))
+    return constraints(m)[end]
+end
+
+function add_constraint!(m::PolyModel, fun1::PT, sense::AbstractConstraintSense; normalize = false)
+    add_constraint!(m, fun1, sense, 0; normalize = normalize)
+
+end
+
+function add_constraint!(m::PolyModel, name::String, fun1::PT, sense::AbstractConstraintSense; normalize = false)
+    add_constraint!(m, name, fun1, sense, 0; normalize = normalize)
+end
+

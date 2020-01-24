@@ -1,23 +1,14 @@
 module PolyPowerModels
 
-using MathOptInterface
-const MOI = MathOptInterface
 using MultivariatePolynomials
 const MP = MultivariatePolynomials
+const PT = Union{Number, MP.AbstractPolynomialLike}
 using DynamicPolynomials
 using SumOfSquares
-
-
-include("models/polymodel.jl")
-include("methods/certificates.jl")
-include("models/ccpolymodel.jl")
-
-#import Reexport
-#Reexport.@reexport
 using PowerModels
 
-include("models/polypowermodel.jl")
-include("models/ccpolypowermodel.jl")
-include("methods/approx.jl")
+include("polymodel.jl")
+include("polypowermodel.jl")
+include("strengthen.jl")
 
 end
