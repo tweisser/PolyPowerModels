@@ -46,9 +46,15 @@ const EQ = EQ_sense()
 
 Base.broadcastable(sense::AbstractConstraintSense) = Ref(sense)
 
-mutable struct PolyCon
+abstract type AbstractPolyConstraint end
+
+mutable struct PolyCon <: AbstractPolyConstraint
     sense:: AbstractConstraintSense
     func::PT
+end
+
+function PolyCon(p1::P1, sense::AbstractConstraintSense, p2::P2) where {P1 <: PT, P2 <: PT}
+    return PolyCon(sense, p1 - p2)
 end
 
 sense(con::PolyCon) = con.sense
@@ -148,5 +154,10 @@ end
 
 function add_constraint!(m::PolyModel, name::String, fun1::PT, sense::AbstractConstraintSense; normalize = false)
     add_constraint!(m, name, fun1, sense, 0; normalize = normalize)
+end
+
+function add_constraint!(m::PolyModel, con::PolyCon)
+    push!(constraints(m), con)
+    return constraints(m)[end]
 end
 
