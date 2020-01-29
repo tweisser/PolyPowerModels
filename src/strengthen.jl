@@ -52,18 +52,16 @@ function strengthening(m::PolyModel; sparse = NoSparsity(), max_degree = total_d
                 	mons = monomials(vars, 0:max_degree-maxdegree(fi))
                 elseif sparse == VariableSparsity()
 	                vars = variables(fi)
-					println(vars)
-					for c in cliques
-					println(c)
-					println(vars⊆c)
-					end
                     id = findall(C->vars⊆C, cliques)
-					println(id)
-					mons = [monomials(cliques[i], 0:max_degree-maxdegree(fi)) for i in id]
+					monsv = [monomials(cliques[i], 0:max_degree-maxdegree(fi)) for i in id]
+					mons = typeof(monsv[1][1])[]
+					for mv in monsv
+						append!(mons, mv)
+					end
+					unique!(mons)
 				else
 					@error "No idea yet"
                 end
-				println(mons)
                 coefs = @variable(sosm, [i=1:length(mons)])
                 EQ_multiplier_dict[con] = sum(coefs[i]*mons[i] for i = 1:length(mons))
                 f -= fi*EQ_multiplier_dict[con] 
