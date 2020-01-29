@@ -99,8 +99,7 @@ function pop_opf(data::Dict{String, Any}; normalize = true)
             @error "power flow already defined"
         else
             p[f_idx] =  (g+g_fr)/tm^2*(vr_fr^2 + vi_fr^2) + (-g*tr+b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr-g*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to)
-        end
-
+        end            
         if haskey(q, f_idx)
             @error "power flow already defined"
         else
@@ -120,6 +119,7 @@ function pop_opf(data::Dict{String, Any}; normalize = true)
         end
 
         # angle differences
+        
         add_constraint!( model, (vi_fr*vr_to - vr_fr*vi_to), LT, tan(branch["angmax"])*(vr_fr*vr_to + vi_fr*vi_to); normalize = normalize )
         add_constraint!( model, (vi_fr*vr_to - vr_fr*vi_to), GT, tan(branch["angmin"])*(vr_fr*vr_to + vi_fr*vi_to); normalize = normalize )
 

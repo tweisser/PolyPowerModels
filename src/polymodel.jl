@@ -35,6 +35,17 @@ end
 PolyCon
 """
 
+function remove_almost_zeros(p::MP.AbstractPolynomialLike; tol = 1e-10)
+    c = coefficients(p)
+    m = monomials(p)
+    id = findall(x -> abs(x)>tol, c)
+    if isempty(id)
+        return zero(typeof(p))
+    else
+        return sum(c[i]*m[i] for i in id)
+    end
+end
+
 abstract type AbstractConstraintSense end
 struct LT_sense <: AbstractConstraintSense end
 struct GT_sense <: AbstractConstraintSense end
@@ -51,6 +62,9 @@ abstract type AbstractPolyConstraint end
 mutable struct PolyCon <: AbstractPolyConstraint
     sense:: AbstractConstraintSense
     func::PT
+    function PolyCon(sense::AbstractConstraintSense, func::PT)
+        new(sense, remove_almost_zeros(func))
+    end
 end
 
 function PolyCon(p1::P1, sense::AbstractConstraintSense, p2::P2) where {P1 <: PT, P2 <: PT}
@@ -149,7 +163,6 @@ end
 
 function add_constraint!(m::PolyModel, fun1::PT, sense::AbstractConstraintSense; normalize = false)
     add_constraint!(m, fun1, sense, 0; normalize = normalize)
-
 end
 
 function add_constraint!(m::PolyModel, name::String, fun1::PT, sense::AbstractConstraintSense; normalize = false)

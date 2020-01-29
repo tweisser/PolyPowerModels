@@ -9,22 +9,28 @@ using Revise
 
 using PolyPowerModels
 
-data = parse_file("test/testcases/pglib_opf_case3_lmbd.m")
+data = parse_file("test/testcases/pglib_opf_case3_lmbd.m") #10|5
+#data = parse_file("data/pglib-opf/pglib_opf_case5_pjm.m") #16|10
+#data = parse_file("data/pglib-opf/pglib_opf_case14_ieee.m") #32|14
+#data = parse_file("data/pglib-opf/pglib_opf_case24_ieee_rts.m") #46|35
+#data = parse_file("data/pglib-opf/pglib_opf_case30_as.m") #59|25
+#data = parse_file("data/pglib-opf/pglib_opf_case30_fsr.m") #59|25 
+#data = parse_file("data/pglib-opf/pglib_opf_case30_ieee.m") #59|25
+#data = parse_file("data/pglib-opf/pglib_opf_case39_epri.m") #43|23
+
+
 pm = pop_opf_deg2(data)
 
-sosm, dict = strengthening(model(pm); sparse = VariableSparsity(), remove_equalities = true)
-optimize!(sosm, factory)
-println(termination_status(sosm))
-println(objective_value(sosm))
-
-sosm, dict = strengthening(model(pm); sparse = NoSparsity(), remove_equalities = true)
+@time sosm, dict = strengthening(model(pm); sparse = VariableSparsity(), remove_equalities = true)
 optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
 
 
-#K = PolyPowerModels.feasible_set(model(pm))
-#G = SumOfSquares.Certificate.csp_graph(PolyPowerModels.objective_function(model(pm)), K)
-#H,cliques = Certificate.CEG.chordal_extension(G,Certificate.CEG.GreedyFillIn())
+pm = pop_opf(data)
+@time sosm, dict = strengthening(model(pm); sparse = VariableSparsity(), remove_equalities = true)
+optimize!(sosm, factory)
+println(termination_status(sosm))
+println(objective_value(sosm))
 
 
