@@ -119,7 +119,7 @@ function pop_opf(data::Dict{String, Any}; normalize = true)
         end
 
         # angle differences
-        
+
         add_constraint!( model, (vi_fr*vr_to - vr_fr*vi_to), LT, tan(branch["angmax"])*(vr_fr*vr_to + vi_fr*vi_to); normalize = normalize )
         add_constraint!( model, (vi_fr*vr_to - vr_fr*vi_to), GT, tan(branch["angmin"])*(vr_fr*vr_to + vi_fr*vi_to); normalize = normalize )
 
@@ -329,5 +329,3 @@ function pop_opf_deg2(data::Dict{String, Any}; normalize = true)
 
     return PolyPowerModel(model, data, ref, var, Dict())
 end
-
-

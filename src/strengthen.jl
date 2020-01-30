@@ -35,11 +35,11 @@ function strengthening(m::PolyModel; sparse = NoSparsity(), max_degree = total_d
     end
 
     if remove_equalities
-		if sparse == VariableSparsity()
-        _, cliques = SumOfSquares.Certificate.chordal_csp_graph(objective_function(m), feasible_set(m))
-		elseif sparse == NoSparsity()
-		vars = variables(feasible_set(m))
-		end
+        if sparse == VariableSparsity()
+            _, cliques = SumOfSquares.Certificate.chordal_csp_graph(objective_function(m), feasible_set(m))
+        elseif sparse == NoSparsity()
+            vars = variables(feasible_set(m))
+        end
     end
 
     K = FullSpace()
@@ -48,19 +48,19 @@ function strengthening(m::PolyModel; sparse = NoSparsity(), max_degree = total_d
         if sense(con) == EQ
             if remove_equalities
                 fi = constraint_function(con)
-				if sparse == NoSparsity()
-                	mons = monomials(vars, 0:max_degree-maxdegree(fi))
+                if sparse == NoSparsity()
+                    mons = monomials(vars, 0:max_degree-maxdegree(fi))
                 elseif sparse == VariableSparsity()
-	                vars = variables(fi)
+                    vars = variables(fi)
                     id = findall(C->vars⊆C, cliques)
-					monsv = [monomials(cliques[i], 0:max_degree-maxdegree(fi)) for i in id]
-					mons = typeof(monsv[1][1])[]
-					for mv in monsv
-						append!(mons, mv)
-					end
-					unique!(mons)
-				else
-					@error "No idea yet"
+                    monsv = [monomials(cliques[i], 0:max_degree-maxdegree(fi)) for i in id]
+                    mons = typeof(monsv[1][1])[]
+                    for mv in monsv
+                        append!(mons, mv)
+                    end
+                    unique!(mons)
+                else
+                    @error "No idea yet"
                 end
                 coefs = @variable(sosm, [i=1:length(mons)])
                 EQ_multiplier_dict[con] = sum(coefs[i]*mons[i] for i = 1:length(mons))
@@ -75,7 +75,6 @@ function strengthening(m::PolyModel; sparse = NoSparsity(), max_degree = total_d
         end
     end
     @constraint(sosm, f in SOSCone(), domain = K, sparse = sparse, maxdegree = max_degree)
-    
+
     return sosm, EQ_multiplier_dict 
 end
-

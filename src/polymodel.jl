@@ -85,7 +85,7 @@ function Base.show(io::IO, con::PolyCon)
 end
 
 """
-    PolyModel(::Union{Nothing, PolyObj}, ::Vector{PolyCon}, ::Vector{String})
+PolyModel(::Union{Nothing, PolyObj}, ::Vector{PolyCon}, ::Vector{String})
 
 Abstract model to represent a Polynomial Optimization Problem. 
 
@@ -127,7 +127,7 @@ end
 PolyModel() = PolyModel(nothing, PolyCon[], String[])
 
 """
-    set_objective!(::PolyModel, ::AbstractOptimizationSense, ::MP.AbstractPolynomialLike)
+set_objective!(::PolyModel, ::AbstractOptimizationSense, ::MP.AbstractPolynomialLike)
 
 """
 function set_objective!(m::PolyModel, sense::AbstractOptimizationSense, obj::MP.AbstractPolynomialLike)
