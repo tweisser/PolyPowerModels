@@ -70,6 +70,32 @@ function is_active(M::MonoSet, m::AbstractMonomialLike)
 end
 
 
+function add_monomials(G::CEG.LabelledGraph, M::MonoSet, con::PolyCon)
+    finish = true
+    if sense(con) == EQ
+        for i in 1:CEG.num_nodes(G.graph)
+            if !(i in CEG.neighbors(G.graph, i))&&any(is_active.(M, [G.int2n[i]*mon for mon in monomials(constraint_function(con))]))
+                finish = false
+                CEG.add_edge!(G.graph, i, i)
+                activate!.(M, [mon*G.int2n[i] for mon in monomials(constraint_function(con))])
+            end    
+        end			
+    else
+        for i in 1:CEG.num_nodes(G.graph)
+            for j in i+1:CEG.num_nodes(G.graph)
+                if !(j in CEG.neighbors(G.graph, i))&&any(is_active.(M, [G.int2n[i]*G.int2n[j]*mon for mon in monomials(constraint_function(con))]))
+                    finish = false
+                    CEG.add_edge!(G.graph, i, j)
+                    activate!.(M, [mon*G.int2n[i]*G.int2n[j] for mon in monomials(constraint_function(con))])
+                end    
+            end
+        end
+    end
+
+    return G, M, finish
+end
+
+
 function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
 
     vars = sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
@@ -94,40 +120,26 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     while !finish
         finish = true
         for con in cons
-            if sense(con) == EQ
-                for i in 1:CEG.num_nodes(G[con].graph)
-                    if !(i in CEG.neighbors(G[con].graph, i))&&any(is_active.(M, [G[con].int2n[i]*mon for mon in monomials(constraint_function(con))]))
-                        finish = false
-                        CEG.add_edge!(G[con].graph, i, i)
-                        activate!.(M, [mon*G[con].int2n[i] for mon in monomials(constraint_function(con))])
-                    end    
-                end			
-            else
-                for i in 1:CEG.num_nodes(G[con].graph)
-                    for j in i+1:CEG.num_nodes(G[con].graph)
-                        if !(j in CEG.neighbors(G[con].graph, i))&&any(is_active.(M, [G[con].int2n[i]*G[con].int2n[j]*mon for mon in monomials(constraint_function(con))]))
-                            finish = false
-                            CEG.add_edge!(G[con].graph, i, j)
-                            activate!.(M, [mon*G[con].int2n[i]*G[con].int2n[j] for mon in monomials(constraint_function(con))])
-                        end    
-                    end
-                end
-            end
+            G[con], M, finish = add_monomials(G[con], M, con)
             if !finish
-                if !(sense(con) == EQ)
-                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
-                else
+                if sense(con) == EQ
                     unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)]), rev = true))
+                else
+                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
                 end
             end
-
         end
     end
     return multiplier_bases
 end
 
 function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
+    _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
+    vars = Dict(con => [clique for clique in cliques if variables(constraint_function(con))⊆ clique] for con in cons)
+    degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
 
+    #initiate multiplier_bases
+    multiplier_bases = Dict(con => Vector{Vector{monomialtype(f)}}([]) for con in cons)
     return multiplier_bases
 end
 
