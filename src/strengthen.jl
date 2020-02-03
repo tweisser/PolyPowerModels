@@ -1,27 +1,270 @@
-export strengthening
+export strengthening, CombinedSparsity
 
-function semialgebraic_set(cons::Vector{PolyCon})
-    K = FullSpace()
+
+"""
+    muliplier_degree(::PolyCon, ::Int)
+
+Compute the degree of the monomials used to construct a multiplier.
+"""
+function multiplier_degree(con::PolyCon, degree::Int)
+    if sense(con) == EQ
+        return degree - maxdegree(constraint_function(con))
+    else
+        return div(degree - maxdegree(constraint_function(con)), 2)
+    end
+end
+
+"""
+
+"""
+
+function dense_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int) 
+   # precompute variables and degrees
+   vars = unique!(sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true))
+    degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
+
+    multiplier_bases = Dict(con => [[mon for mon in monomials(vars, 0:degrees[con])]] for con in cons)
+
+    return multiplier_bases
+end
+
+function variable_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
+    _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
+    vars = Dict(con => [clique for clique in cliques if variables(constraint_function(con))⊆ clique] for con in cons)
+    degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
+
+    #initiate multiplier_bases
+    multiplier_bases = Dict(con => Vector{Vector{monomialtype(f)}}([]) for con in cons)
     for con in cons
-        if sense(con) == EQ
-            K = intersect(K, @set(constraint_function(con) == 0))
-        elseif sense(con) == LT
-            K = intersect(K, @set(constraint_function(con) <= 0))
-        else
-            K = intersect(K, @set(constraint_function(con) >= 0))
+        for var in vars[con]
+            push!(multiplier_bases[con], [mon for mon in  monomials(var, 0:degrees[con])] )
         end
     end
-    return K
+    
+    return multiplier_bases
 end
 
-function feasible_set(m::PolyModel)
-    return semialgebraic_set(constraints(m))
+"""
+MonoSet is a structure to deal with the fact whether a monomial is present for a specific SOS representation.
+"""
+mutable struct MonoSet
+    monomials::Vector{<:AbstractMonomialLike}
+    enabled::BitSet
 end
 
-total_degree(m::PolyModel) = maximum([maxdegree(objective_function(m)), maxdegree.(constraint_function.(constraints(m)))...])
+Base.broadcastable(M::MonoSet) = Ref(M)
 
-function strengthening(m::PolyModel; sparse = NoSparsity(), max_degree = total_degree(m), remove_equalities = true)
+function monoset(variables::Vector{T}, degree::Int) where T <: MP.AbstractVariable
+    mv = monomials(variables, 0:degree)
+    return MonoSet([mon for mon in mv], BitSet())
+end
+
+function activate!(M::MonoSet, m::AbstractMonomialLike)
+    id = findfirst(x -> x==m, M.monomials)
+    push!(M.enabled, id)
+end
+
+function is_active(M::MonoSet, m::AbstractMonomialLike) 
+    id = findfirst(x -> x==m, M.monomials)
+    return id in M.enabled
+end
+
+
+function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
+
+    vars = sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
+    degrees = Dict{PolyPowerModels.PolyCon, Int64}( con => multiplier_degree(con, degree) for con in cons)
+
+    #initiate monomial set
+    M = monoset(vars, degree)
+    activate!.(M, [mon for mon in monomials(f)])
+    for con in constraint_function.(cons)
+        activate!.(M, [mon for mon in monomials(con) for con in constraint_function.(cons)])
+    end
+
+    #initiate multiplier_bases
+    multiplier_bases = Dict(con => Vector{Vector{eltype(M.monomials)}}([[1]]) for con in cons)
+
+    G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}() for con in cons )
+    for con in cons
+        CEG.add_node!.(G[con], [mon for mon in monomials(vars, 0:degrees[con])])
+    end
+
+    finish = false
+    while !finish
+        finish = true
+        for con in cons
+            if sense(con) == EQ
+                for i in 1:CEG.num_nodes(G[con].graph)
+                    if !(i in CEG.neighbors(G[con].graph, i))&&any(is_active.(M, [G[con].int2n[i]*mon for mon in monomials(constraint_function(con))]))
+                        finish = false
+                        CEG.add_edge!(G[con].graph, i, i)
+                        activate!.(M, [mon*G[con].int2n[i] for mon in monomials(constraint_function(con))])
+                    end    
+                end			
+            else
+                for i in 1:CEG.num_nodes(G[con].graph)
+                    for j in i+1:CEG.num_nodes(G[con].graph)
+                        if !(j in CEG.neighbors(G[con].graph, i))&&any(is_active.(M, [G[con].int2n[i]*G[con].int2n[j]*mon for mon in monomials(constraint_function(con))]))
+                            finish = false
+                            CEG.add_edge!(G[con].graph, i, j)
+                            activate!.(M, [mon*G[con].int2n[i]*G[con].int2n[j] for mon in monomials(constraint_function(con))])
+                        end    
+                    end
+                end
+            end
+            if !finish
+                if !(sense(con) == EQ)
+                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
+                else
+                    unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)]), rev = true))
+                end
+            end
+
+        end
+    end
+    return multiplier_bases
+end
+
+function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
+
+    return multiplier_bases
+end
+
+function combined_sparsity(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, d::Int)
+
+    vars = sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
+    cons = normalize_sense.(cons)
+    push!(cons, PolyPowerModels.PolyCon(GT, vars[1]^0))
+
+    degrees = Dict{PolyPowerModels.PolyCon, Int64}()
+
+    for con in cons
+        @assert d ≥ maxdegree(constraint_function(con))
+        if sense(con) == EQ
+            degrees[con] = d - maxdegree(constraint_function(con))
+        else
+            degrees[con] = div(d - maxdegree(constraint_function(con)), 2)
+        end
+    end
+
+    M = [mon for mon in monomials(f)]
+    for con in constraint_function.(cons)
+        for mon in monomials(con)
+            push!(M, mon)
+        end
+    end
+
+    unique!(sort!(M, rev = true))
+
+    multiplier_bases = Dict(con => Vector{Vector{Vector{eltype(M)}}}([[[1]]]) for con in cons)
+    G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}[] for con in cons )
+
+    _, cliques = SumOfSquares.Certificate.chordal_csp_graph(objective_function(m), feasible_set(m))
+
+    for con in cons
+        for clique in cliques
+            if effective_variables(constraint_function(con))⊆ clique
+                Gi = CEG.LabelledGraph{eltype(M)}()
+                CEG.add_node!.(Gi, [mon for mon in monomials(clique, 0:degrees[con])])
+                push!(G[con], Gi)
+            end
+        end
+    end
+
+    finish = false
+
+    while !finish
+        finish = true
+        for con in cons
+            if sense(con) == EQ
+                for Gi in G[con]
+                    for i in 1:CEG.num_nodes(Gi.graph)
+                        if !(i in CEG.neighbors(Gi.graph, i))&&!isempty(intersect([Gi.int2n[i]*mon for mon in monomials(constraint_function(con))], M))
+                            finish = false
+                            CEG.add_edge!(Gi.graph, i, i)
+                            for mon in monomials(constraint_function(con))
+                                push!(M, mon*Gi.int2n[i])
+                            end
+                        end    
+                    end
+                end			
+            else
+                for Gi in G[con]
+                    for i in 1:CEG.num_nodes(Gi.graph)
+                        for j in i+1:CEG.num_nodes(Gi.graph)
+                            if !(j in CEG.neighbors(Gi.graph, i))&&!isempty(intersect([Gi.int2n[i]*Gi.int2n[j]*mon for mon in monomials(constraint_function(con))], M))
+                                finish = false
+                                CEG.add_edge!(Gi.graph, i, j)
+                                for mon in monomials(constraint_function(con))
+                                    push!(M, mon*G[con].int2n[i]*G[con].int2n[j])
+                                end
+                            end    
+                        end
+                    end
+                end
+            end
+            #=
+            if !finish
+            unique!(sort!(M, rev = true))
+            if !(sense(con) == EQ)
+            for i in 1:length(
+            for Gi in G[con]
+            G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
+            #TODO
+            end
+            end
+            else
+            unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)])))
+            end
+            end
+            =#
+        end
+    end
+
+
+    return multiplier_bases
+end
+
+struct CombinedSparsity <: SumOfSquares.Sparsity end
+
+function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vector{PolyCon}, degree::Int, sparsity::Sparsity)
+
+    vars = sort!(union(variables(f),variables.(constraint_function.(ccons))...), rev = true)
+    cons = normalize_sense.(ccons)
+    push!(cons, PolyCon(GT, vars[1]^0))
+
+    if sparsity isa NoSparsity
+        multipliers = dense_putinar(f, cons, degree)
+    elseif sparsity isa VariableSparsity
+        multipliers = variable_sparse_putinar(f, cons, degree)
+    elseif sparsity isa MonomialSparsity
+        multipliers = monomial_sparse_putinar(f, cons, degree)
+    elseif sparsity isa CombinedSparsity
+        multipliers = combined_sparse_putinar(f, cons, degree)
+    else
+        @error("Unknown sparsity pattern")
+    end
+    p = copy(f)
+    for (con, mvs) in multipliers
+        for mv in mvs
+            if sense(con)== EQ
+                mult = @variable(model, [1], Poly(mv)) 
+            else
+                mult = @variable(model, [1], SOSPoly(mv)) 
+            end
+            p -= constraint_function(con)*mult[1]
+        end
+    end
+    @constraint(model, p == 0)
+
+    return model
+end
+
+function strengthening(m::PolyModel; sparsity = NoSparsity(), max_degree = total_degree(m))
+
     sosm = SOSModel()
+
     if objective_sense(m) == MAX
         t = @variable sosm 
         @objective sosm Min t
@@ -34,268 +277,7 @@ function strengthening(m::PolyModel; sparse = NoSparsity(), max_degree = total_d
         f = objective_function(m)
     end
 
-    if remove_equalities
-        if sparse == VariableSparsity()
-            _, cliques = SumOfSquares.Certificate.chordal_csp_graph(objective_function(m), feasible_set(m))
-        elseif sparse == NoSparsity()
-            vars = variables(feasible_set(m))
-        end
-    end
+    sos_constraint!(sosm, f, constraints(m), max_degree::Int, sparsity)
 
-    K = FullSpace()
-    EQ_multiplier_dict = Dict()
-    for con in constraints(m)
-        if sense(con) == EQ
-            if remove_equalities
-                fi = constraint_function(con)
-                if sparse == NoSparsity()
-                    mons = monomials(vars, 0:max_degree-maxdegree(fi))
-                elseif sparse == VariableSparsity()
-                    vars = variables(fi)
-                    id = findall(C->vars⊆C, cliques)
-                    monsv = [monomials(cliques[i], 0:max_degree-maxdegree(fi)) for i in id]
-                    mons = typeof(monsv[1][1])[]
-                    for mv in monsv
-                        append!(mons, mv)
-                    end
-                    unique!(mons)
-                else
-                    @error "No idea yet"
-                end
-                coefs = @variable(sosm, [i=1:length(mons)])
-                EQ_multiplier_dict[con] = sum(coefs[i]*mons[i] for i = 1:length(mons))
-                f -= fi*EQ_multiplier_dict[con] 
-            else
-                K = intersect(K, @set(constraint_function(con) == 0))
-            end
-        elseif sense(con) == LT
-            K = intersect(K, @set(constraint_function(con) <= 0))
-        else
-            K = intersect(K, @set(constraint_function(con) >= 0))
-        end
-    end
-    @constraint(sosm, f in SOSCone(), domain = K, sparse = sparse, maxdegree = max_degree)
-
-    return sosm, EQ_multiplier_dict 
+    return sosm
 end
-
-
-function monomial_sparsity(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, d::Int)
-	
-	vars = sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
-	cons = normalize_sense.(cons)
-	push!(cons, PolyPowerModels.PolyCon(GT, vars[1]^0))
-	degrees = Dict{PolyPowerModels.PolyCon, Int64}()
-	for con in cons
-		@assert d ≥ maxdegree(constraint_function(con))
-		if sense(con) == EQ
-			degrees[con] = d - maxdegree(constraint_function(con))
-		else
-			degrees[con] = div(d - maxdegree(constraint_function(con)), 2)
-		end
-	end
-
-	M = [mon for mon in monomials(f)]
-    for con in constraint_function.(cons)
-        for mon in monomials(con)
-            push!(M, mon)
-        end
-    end
-
-    unique!(sort!(M, rev = true))
-
-    multiplier_bases = Dict(con => Vector{Vector{eltype(M)}}([[1]]) for con in cons)
-    G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}() for con in cons )
-	for con in cons
-        CEG.add_node!.(G[con], [mon for mon in monomials(vars, 0:degrees[con])])
-    end
-    finish = false
-    while !finish
-        finish = true
-        for con in cons
-			if sense(con) == EQ
-            	for i in 1:CEG.num_nodes(G[con].graph)
-					if !(i in CEG.neighbors(G[con].graph, i))&&!isempty(intersect([G[con].int2n[i]*mon for mon in monomials(constraint_function(con))], M))
-						finish = false
-						CEG.add_edge!(G[con].graph, i, i)
-						for mon in monomials(constraint_function(con))
-							push!(M, mon*G[con].int2n[i])
-						end
-					end    
-				end			
-			else
-            	for i in 1:CEG.num_nodes(G[con].graph)
-					for j in i+1:CEG.num_nodes(G[con].graph)
-						if !(j in CEG.neighbors(G[con].graph, i))&&!isempty(intersect([G[con].int2n[i]*G[con].int2n[j]*mon for mon in monomials(constraint_function(con))], M))
-							finish = false
-							CEG.add_edge!(G[con].graph, i, j)
-							for mon in monomials(constraint_function(con))
-								push!(M, mon*G[con].int2n[i]*G[con].int2n[j])
-							end
-						end    
-					end
-				end
-            end
-            if !finish
-				unique!(sort!(M, rev = true))
-				if !(sense(con) == EQ)
-                	G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
-					else
-					unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)]), rev = true))
-            	end
-			end
-
-        end
-    end
-    return multiplier_bases
-end
-
-function mono_sparse_certificate(m::Model, f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, d::Int)
-    multipliers = monomial_sparsity(f, cons, d)
-    p = f
-    dict = Dict(con => Dict() for con in keys(multipliers))
-    for (con, mvs) in multipliers
-        for mv in mvs
-			if sense(con)== EQ
-            	mult = @variable(m, [1], Poly(mv)) 
-			else
-            	mult = @variable(m, [1], SOSPoly(mv)) 
-			end
-			dict[con][mv] = mult
-            p -= constraint_function(con)*mult[1]
-        end
-    end
-    @constraint(m, p == 0)
-    return m, dict 
-end
-
-function mono_sparse_stregthen(m::PolyModel, d::Int)
-	sosm = SOSModel()
-	@variable sosm t
-	@objective sosm Max t
-	sosm, dict = mono_sparse_certificate(sosm, objective_function(m)-t, constraints(m), d)
-	return sosm, dict
-end
-
-function combined_sparsity(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, d::Int)
-
-	vars = sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
-	cons = normalize_sense.(cons)
-	push!(cons, PolyPowerModels.PolyCon(GT, vars[1]^0))
-	
-	degrees = Dict{PolyPowerModels.PolyCon, Int64}()
-	
-	for con in cons
-		@assert d ≥ maxdegree(constraint_function(con))
-		if sense(con) == EQ
-			degrees[con] = d - maxdegree(constraint_function(con))
-		else
-			degrees[con] = div(d - maxdegree(constraint_function(con)), 2)
-		end
-	end
-
-	M = [mon for mon in monomials(f)]
-    for con in constraint_function.(cons)
-        for mon in monomials(con)
-            push!(M, mon)
-        end
-    end
-
-    unique!(sort!(M, rev = true))
-
-    multiplier_bases = Dict(con => Vector{Vector{Vector{eltype(M)}}}([[[1]]]) for con in cons)
-    G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}[] for con in cons )
-
-	_, cliques = SumOfSquares.Certificate.chordal_csp_graph(objective_function(m), feasible_set(m))
-	
-	for con in cons
-		for clique in cliques
-			if effective_variables(constraint_function(con))⊆ clique
-				Gi = CEG.LabelledGraph{eltype(M)}()
-				CEG.add_node!.(Gi, [mon for mon in monomials(clique, 0:degrees[con])])
-				push!(G[con], Gi)
-			end
-		end
-    end
-
-    finish = false
-    
-	while !finish
-        finish = true
-        for con in cons
-			if sense(con) == EQ
-				for Gi in G[con]
-            		for i in 1:CEG.num_nodes(Gi.graph)
-						if !(i in CEG.neighbors(Gi.graph, i))&&!isempty(intersect([Gi.int2n[i]*mon for mon in monomials(constraint_function(con))], M))
-							finish = false
-							CEG.add_edge!(Gi.graph, i, i)
-							for mon in monomials(constraint_function(con))
-								push!(M, mon*Gi.int2n[i])
-							end
-						end    
-					end
-				end			
-			else
-				for Gi in G[con]
-            		for i in 1:CEG.num_nodes(Gi.graph)
-						for j in i+1:CEG.num_nodes(Gi.graph)
-							if !(j in CEG.neighbors(Gi.graph, i))&&!isempty(intersect([Gi.int2n[i]*Gi.int2n[j]*mon for mon in monomials(constraint_function(con))], M))
-								finish = false
-								CEG.add_edge!(Gi.graph, i, j)
-								for mon in monomials(constraint_function(con))
-									push!(M, mon*G[con].int2n[i]*G[con].int2n[j])
-								end
-							end    
-						end
-					end
-				end
-            end
-            if !finish
-				unique!(sort!(M, rev = true))
-				if !(sense(con) == EQ)
-					for i in 1:length(
-					for Gi in G[con]
-                		G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
-						#TODO
-					else
-					unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)])))
-            	end
-			end
-
-        end
-    end
-
-
-	return multiplier_bases
-end
-
-
-
-function combined_sparse_certificate(m::Model, f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, d::Int)
-    multipliers = combined_sparsity(f, cons, d)
-    p = f
-    dict = Dict(con => Dict() for con in keys(multipliers))
-    for (con, mvs) in multipliers
-        for mv in mvs
-			if sense(con)== EQ
-            	mult = @variable(m, [1], Poly(mv)) 
-			else
-            	mult = @variable(m, [1], SOSPoly(mv)) 
-			end
-			dict[con][mv] = mult
-            p -= constraint_function(con)*mult[1]
-        end
-    end
-    @constraint(m, p == 0)
-    return m, dict 
-end
-
-
-function compined_sparse_stregthen(m::PolyModel, d::Int)
-	sosm = SOSModel()
-	@variable sosm t
-	@objective sosm Max t
-	sosm, dict = combined_sparse_certificate(sosm, objective_function(m)-t, constraints(m), d)
-	return sosm, dict
-end
-

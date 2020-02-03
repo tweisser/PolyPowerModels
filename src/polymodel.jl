@@ -92,6 +92,21 @@ function normalize_sense(con::PolyCon)
 	end
 end
 
+function semialgebraic_set(cons::Vector{PolyCon})
+    K = FullSpace()
+    for con in cons
+        if sense(con) == EQ
+            K = intersect(K, @set(constraint_function(con) == 0))
+        elseif sense(con) == LT
+            K = intersect(K, @set(constraint_function(con) <= 0))
+        else
+            K = intersect(K, @set(constraint_function(con) >= 0))
+        end
+    end
+    return K
+end
+
+
 """
 PolyModel(::Union{Nothing, PolyObj}, ::Vector{PolyCon}, ::Vector{String})
 
@@ -119,6 +134,7 @@ objective_function(m::PolyModel) = objective_function(objective(m))
 objective_sense(m::PolyModel) = sense(objective(m))
 constraints(m::PolyModel) = m.constraints
 constraint_names(m::PolyModel) = m.constraint_names
+total_degree(m::PolyModel) = maximum([maxdegree(objective_function(m)), maxdegree.(constraint_function.(constraints(m)))...])
 
 function Base.show(io::IO, m::PolyModel)
     if objective(m) == nothing
@@ -182,3 +198,6 @@ function add_constraint!(m::PolyModel, con::PolyCon)
     return constraints(m)[end]
 end
 
+function feasible_set(m::PolyModel)
+    return semialgebraic_set(constraints(m))
+end

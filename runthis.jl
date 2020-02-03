@@ -18,28 +18,41 @@ data = parse_file("test/testcases/pglib_opf_case3_lmbd.m") #10|5
 #data = parse_file("data/pglib-opf/pglib_opf_case30_ieee.m") #59|25
 #data = parse_file("data/pglib-opf/pglib_opf_case39_epri.m") #43|23
 
-
 pm = pop_opf_deg2(data)
 
-@time sosm, dict = strengthening(model(pm); sparse = VariableSparsity(), remove_equalities = true)
+@time sosm = strengthening(model(pm))
 optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
 
-@time sosm, dict  =  PolyPowerModels.mono_sparse_stregthen(model(pm), 2)
+@time sosm = strengthening(model(pm); sparsity = VariableSparsity() )
+optimize!(sosm, factory)
+println(termination_status(sosm))
+println(objective_value(sosm))
+
+@time sosm = strengthening(model(pm); sparsity = MonomialSparsity())
 optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
 
 #=
+@time sosm = strengthening(model(pm); sparsity = CombinedSparsity())
+optimize!(sosm, factory)
+println(termination_status(sosm))
+println(objective_value(sosm))
+
+=#
+
 pm = pop_opf(data)
-@time sosm, dict = strengthening(model(pm); sparse = VariableSparsity(), remove_equalities = true)
+
+@time sosm = strengthening(model(pm); sparsity = VariableSparsity() )
 optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
+
+@time sosm = strengthening(model(pm); sparsity = MonomialSparsity() )
     
-@time sosm, dict =  PolyPowerModels.mono_sparse_stregthen(model(pm), 4)
 optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
-=#	
+	
