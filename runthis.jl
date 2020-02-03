@@ -48,17 +48,18 @@ println(objective_value(sosm))
 =#
 
 pm = pop_opf(data)
-
+#=
 @time sosm = strengthening(model(pm); sparsity = VariableSparsity() )
 optimize!(sosm, factory)
 println("Variable sparsity")
 
 println(termination_status(sosm))
 println(objective_value(sosm))
-#=
+=#
+
 @time sosm = strengthening(model(pm); sparsity = MonomialSparsity() )
 optimize!(sosm, factory)
 println("Monomial sparsity")
 println(termination_status(sosm))
 println(objective_value(sosm))
-=#	
+	

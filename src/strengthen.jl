@@ -48,27 +48,21 @@ end
 MonoSet is a structure to deal with the fact whether a monomial is present for a specific SOS representation.
 """
 mutable struct MonoSet
-    monomials::Vector{<:AbstractMonomialLike}
-    enabled::BitSet
+    dict::Dict{<:AbstractMonomialLike, Bool}
 end
 
 Base.broadcastable(M::MonoSet) = Ref(M)
 
 function monoset(variables::Vector{T}, degree::Int) where T <: MP.AbstractVariable
     mv = monomials(variables, 0:degree)
-    return MonoSet([mon for mon in mv], BitSet())
+    return MonoSet(Dict(mon => false for mon in mv))
 end
 
 function activate!(M::MonoSet, m::AbstractMonomialLike)
-    id = findfirst(x -> x==m, M.monomials)
-    push!(M.enabled, id)
+    M.dict[m] = true    
 end
 
-function is_active(M::MonoSet, m::AbstractMonomialLike) 
-    id = findfirst(x -> x==m, M.monomials)
-    return id in M.enabled
-end
-
+is_active(M::MonoSet, m::AbstractMonomialLike) = M.dict[m]
 
 function add_monomials(G::CEG.LabelledGraph, M::MonoSet, con::PolyCon)
     finish = true
@@ -109,7 +103,7 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     end
 
     #initiate multiplier_bases
-    multiplier_bases = Dict(con => Vector{Vector{eltype(M.monomials)}}([[1]]) for con in cons)
+    multiplier_bases = Dict(con => Vector{Vector{keytype(M.dict)}}([[1]]) for con in cons)
 
     G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}() for con in cons )
     for con in cons
