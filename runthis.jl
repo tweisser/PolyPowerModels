@@ -26,11 +26,20 @@ optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
 
+@time sosm, dict  =  PolyPowerModels.mono_sparse_stregthen(model(pm), 2)
+optimize!(sosm, factory)
+println(termination_status(sosm))
+println(objective_value(sosm))
 
+#=
 pm = pop_opf(data)
 @time sosm, dict = strengthening(model(pm); sparse = VariableSparsity(), remove_equalities = true)
 optimize!(sosm, factory)
 println(termination_status(sosm))
 println(objective_value(sosm))
-
-
+    
+@time sosm, dict =  PolyPowerModels.mono_sparse_stregthen(model(pm), 4)
+optimize!(sosm, factory)
+println(termination_status(sosm))
+println(objective_value(sosm))
+=#	

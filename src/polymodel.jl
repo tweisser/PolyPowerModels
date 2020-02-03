@@ -84,6 +84,14 @@ function Base.show(io::IO, con::PolyCon)
     end
 end
 
+function normalize_sense(con::PolyCon)
+	if sense(con) == LT
+		return PolyCon(GT, -constraint_function(con))
+	else
+		return con
+	end
+end
+
 """
 PolyModel(::Union{Nothing, PolyObj}, ::Vector{PolyCon}, ::Vector{String})
 
