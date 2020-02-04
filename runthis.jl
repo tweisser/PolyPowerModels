@@ -41,6 +41,14 @@ function bench(data, level, sparsity, factory)
         t_m = @elapsed sosm, multipliers = strengthening(model(pm); sparsity = sparsity)
         t_sol = @elapsed optimize!(sosm, factory)
 
+        for (key, val) in multipliers
+            println(key)
+            println(variables(constraint_function(key)))
+            println("degree: $(maxdegree(constraint_function(key)))")
+            println(val)
+            println()
+        end
+
         return t_m, t_sol, termination_status(sosm), objective_value(sosm), max_size_sdp_constraint(multipliers)
     end
 end
@@ -51,8 +59,8 @@ candidates = [
               #(2, VariableSparsity()),
               #(2, MonomialSparsity()),
               #(2, CombinedSparsity()),
-              (1, VariableSparsity()),
-              (1, MonomialSparsity()),
+              #(1, VariableSparsity()),
+              #(1, MonomialSparsity()),
               (1, CombinedSparsity())
              ]
 

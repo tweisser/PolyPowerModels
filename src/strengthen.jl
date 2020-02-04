@@ -19,26 +19,27 @@ end
 """
 
 function dense_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int) 
-   # precompute variables and degrees
-   vars = unique!(sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true))
+    # precompute variables and degrees
+    vars = unique!(sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true))
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
 
-    multiplier_bases = Dict(con => [[mon for mon in monomials(vars, 0:degrees[con])]] for con in cons)
+    multiplier_bases = OrderedDict(con => [[mon for mon in monomials(vars, 0:degrees[con])]] for con in cons)
 
     return multiplier_bases
 end
 
 function variable_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
     _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
-    vars = Dict(con => [clique for clique in cliques if variables(constraint_function(con))⊆ clique] for con in cons)
+    vars = Dict(con => [clique for clique in cliques if effective_variables(constraint_function(con))⊆ clique] for con in cons)
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
 
     #initiate multiplier_bases
-    multiplier_bases = Dict(con => Vector{Vector{monomialtype(f)}}([]) for con in cons)
+    multiplier_bases = OrderedDict(con => Vector{Vector{monomialtype(f)}}([]) for con in cons)
     for con in cons
         for var in vars[con]
             push!(multiplier_bases[con], [mon for mon in  monomials(var, 0:degrees[con])] )
         end
+        unique!(multiplier_bases[con])
     end
     
     return multiplier_bases
@@ -102,7 +103,7 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     end
 
     #initiate multiplier_bases
-    multiplier_bases = Dict(con => Vector{Vector{keytype(M.dict)}}([[1]]) for con in cons)
+    multiplier_bases = OrderedDict(con => Vector{Vector{keytype(M.dict)}}([[1]]) for con in cons)
 
     G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}() for con in cons )
     for con in cons
@@ -128,7 +129,7 @@ end
 
 function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
     _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
-    vars = Dict(con => [clique for clique in cliques if variables(constraint_function(con))⊆ clique] for con in cons)
+    vars = Dict(con => [clique for clique in cliques if effective_variables(constraint_function(con))⊆ clique] for con in cons)
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
     
     #initiate monomial set
@@ -140,7 +141,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     end
   
     #initiate multiplier_bases
-    multiplier_bases = Dict(con => Dict(var => Vector{Vector{keytype(M.dict)}}([[1]]) for var in vars[con]) for con in cons)
+    multiplier_bases = OrderedDict(con => Dict(var => Vector{Vector{keytype(M.dict)}}([[1]]) for var in vars[con]) for con in cons)
 
     G = Dict(con => Dict(var => CEG.LabelledGraph{eltype(M)}() for var in vars[con]) for con in cons )
     for con in cons

@@ -8,6 +8,8 @@ using SumOfSquares
 const CEG = SumOfSquares.Certificate.ChordalExtensionGraph
 using PowerModels
 
+using OrderedCollections
+
 include("polymodel.jl")
 include("polypowermodel.jl")
 include("strengthen.jl")
