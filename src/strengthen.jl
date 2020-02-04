@@ -130,7 +130,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
     vars = Dict(con => [clique for clique in cliques if variables(constraint_function(con))⊆ clique] for con in cons)
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
-
+    
     #initiate monomial set
     M = monoset(sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
 , degree)
@@ -157,7 +157,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
                 G[con][var], M, finish = add_monomials(G[con][var], M, con)
                 if !finish
                     if sense(con) == EQ
-                        unique!(sort!(append!(multiplier_bases[con][var][1],[G[con][var].int2n[i] for i in 1:CEG.num_nodes(G[con][var].graph) if i in CEG.neighbors(G[con][var].graph, i)]), rev = true))
+                        unique!(sort!(append!(multiplier_bases[con][var][1], [G[con][var].int2n[i] for i in 1:CEG.num_nodes(G[con][var].graph) if i in CEG.neighbors(G[con][var].graph, i)]), rev = true))
                     else
                         G[con][var], multiplier_bases[con][var] = CEG.chordal_extension(G[con][var], CEG.GreedyFillIn())
                     end
@@ -167,7 +167,6 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     end
 
     final_multiplier_bases =  Dict(con => unique!([multiplier_bases[con][v][i] for v in vars[con] for i in 1:length(multiplier_bases[con][v])]) for con in cons)
-    println(final_multiplier_bases)
     return final_multiplier_bases
 end
 
