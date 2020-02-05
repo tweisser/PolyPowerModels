@@ -1,5 +1,5 @@
 export PolyModel, set_objective!, add_constraint!
-export MAX, MIN, LT, GT, EQ
+export MAX, MIN, LT, GT, EQ, PolyCon
 export sense, constraints, constraint_names, constraint_function, objective_function, objective_sense
 
 """
@@ -203,9 +203,8 @@ function add_constraint!(m::PolyModel, name::String, fun1::PT, sense::AbstractCo
     add_constraint!(m, name, fun1, sense, 0; normalize = normalize)
 end
 
-function add_constraint!(m::PolyModel, con::PolyCon)
-    push!(constraints(m), con)
-    return constraints(m)[end]
+function add_constraint!(m::PolyModel, con::PolyCon; normalize = false)
+    add_constraint!(m, constraint_function(con), sense(con); normalize = normalize)
 end
 
 function feasible_set(m::PolyModel)

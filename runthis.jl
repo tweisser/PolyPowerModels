@@ -54,7 +54,7 @@ function bench(data, level, model_type, factory)
         println()
 
         t_sol = @elapsed optimize!(sosm, factory)
-        #=
+        
         for (key, val) in multipliers
             if MultivariatePolynomials.maxdegree(constraint_function(key)) == 0 
             println(key)
@@ -64,7 +64,7 @@ function bench(data, level, model_type, factory)
             println()
         end
         end
-        =#
+        
         return t_m, t_sol, termination_status(sosm), objective_value(sosm), max_size_sdp_constraint(multipliers)
     end
 end
@@ -74,11 +74,11 @@ candidates = [
               #(0, ACRPowerModel),
               #(1, NoSparsity()),
               #(2, VariableSparsity()),
-              (2, MonomialSparsity()),
+              #(2, MonomialSparsity()),
               #(2, CombinedSparsity()),
               #(1, VariableSparsity()),
-              #(1, MonomialSparsity()),
-              #(1, CombinedSparsity())
+              (1, MonomialSparsity()),
+              (1, CombinedSparsity())
              ]
 
 benchmark = OrderedDict(candidate => bench(data, first(candidate), last(candidate), factory) for candidate in candidates)
