@@ -65,6 +65,7 @@ end
 
 is_active(M::MonoSet, m::AbstractMonomialLike) = M.dict[m]
 
+
 function add_monomials(G::CEG.LabelledGraph, M::MonoSet, con::PolyCon)
     finish = true
     if sense(con) == EQ
@@ -78,7 +79,7 @@ function add_monomials(G::CEG.LabelledGraph, M::MonoSet, con::PolyCon)
     else
         for i in 1:CEG.num_nodes(G.graph)
             for j in i+1:CEG.num_nodes(G.graph)
-                if !(j in CEG.neighbors(G.graph, i))&&any(is_active.(M, [G.int2n[i]*G.int2n[j]*mon for mon in monomials(constraint_function(con))]))
+                if !(j in CEG.neighbors(G.graph, i)) && any(is_active.(M, [G.int2n[i]*G.int2n[j]*mon for mon in monomials(constraint_function(con))]))
                     finish = false
                     CEG.add_edge!(G.graph, i, j)
                     activate!.(M, [mon*G.int2n[i]*G.int2n[j] for mon in monomials(constraint_function(con))])
@@ -105,7 +106,7 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     #initiate multiplier_bases
     multiplier_bases = OrderedDict(con => Vector{Vector{keytype(M.dict)}}([[1]]) for con in cons)
 
-    G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}() for con in cons )
+    G = Dict{eltype(cons), CEG.LabelledGraph{keytype(M.dict)}}(con => CEG.LabelledGraph{keytype(M.dict)}() for con in cons )
     for con in cons
         CEG.add_node!.(G[con], [mon for mon in monomials(vars, 0:degrees[con])])
     end
@@ -119,7 +120,7 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
                 if sense(con) == EQ
                     unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)]), rev = true))
                 else
-                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn())
+                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn()) #TODO Might not be necessary to run chordal extension in every loop.
                 end
             end
         end
@@ -129,21 +130,29 @@ end
 
 function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
     _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
-    vars = Dict(con => [clique for clique in cliques if effective_variables(constraint_function(con))⊆ clique] for con in cons)
+    vars = Dict(con => [clique for clique in cliques if effective_variables(constraint_function(con)) ⊆ clique] for con in cons)
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
     
     #initiate monomial set
-    M = monoset(sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true)
-, degree)
+    M = monoset(sort!(union(variables(f),variables.(constraint_function.(cons))...), rev = true), degree) 
+    #TODO The set M is too big and might be reduced a priori (only need monomials of variable_sparse_putinar)
     activate!.(M, [mon for mon in monomials(f)])
     for con in constraint_function.(cons)
         activate!.(M, [mon for mon in monomials(con) for con in constraint_function.(cons)])
     end
-  
-    #initiate multiplier_bases
-    multiplier_bases = OrderedDict(con => Dict(var => Vector{Vector{keytype(M.dict)}}([[1]]) for var in vars[con]) for con in cons)
 
-    G = Dict(con => Dict(var => CEG.LabelledGraph{eltype(M)}() for var in vars[con]) for con in cons )
+    #= too brutal
+    for con in cons
+        for var in vars[con]
+            activate!.(M, [var[i]*var[j] for i in 1:length(var) for j in i+1:length(var)])
+        end
+    end
+    =#
+
+    #initiate multiplier_bases
+    multiplier_bases = OrderedDict(con => OrderedDict(var => Vector{Vector{keytype(M.dict)}}([[1]]) for var in vars[con]) for con in cons)
+
+    G = Dict(con => Dict(var => CEG.LabelledGraph{keytype(M.dict)}() for var in vars[con]) for con in cons )
     for con in cons
         for var in vars[con]
             CEG.add_node!.(G[con][var], [mon for mon in monomials(var, 0:degrees[con])])
@@ -167,7 +176,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
         end
     end
 
-    final_multiplier_bases =  Dict(con => unique!([multiplier_bases[con][v][i] for v in vars[con] for i in 1:length(multiplier_bases[con][v])]) for con in cons)
+    final_multiplier_bases =  OrderedDict(con => unique!([multiplier_bases[con][v][i] for v in vars[con] for i in 1:length(multiplier_bases[con][v])]) for con in cons)
     return final_multiplier_bases
 end
 
@@ -176,6 +185,7 @@ struct CombinedSparsity <: SumOfSquares.Sparsity end
 function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vector{PolyCon}, degree::Int, sparsity::Sparsity)
 
     vars = sort!(union(variables(f),variables.(constraint_function.(ccons))...), rev = true)
+    
     cons = normalize_sense.(ccons)
     push!(cons, PolyCon(GT, vars[1]^0))
 

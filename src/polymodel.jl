@@ -92,6 +92,16 @@ function normalize_sense(con::PolyCon)
 	end
 end
 
+function split_equality(con::PolyCon)
+    if sense(con) == EQ
+        return [PolyCon(LT, constraint_function(con)), PolyCon(GT, constraint_function(con))]
+    else 
+        return [con]
+    end
+end
+
+
+
 function semialgebraic_set(cons::Vector{PolyCon})
     K = FullSpace()
     for con in cons
