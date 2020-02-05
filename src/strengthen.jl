@@ -48,23 +48,33 @@ end
 """
 MonoSet is a structure to deal with the fact whether a monomial is present for a specific SOS representation.
 """
-mutable struct MonoSet
-    dict::Dict{<:AbstractMonomialLike, Bool}
+mutable struct MonoSet{T<:AbstractMonomialLike,} 
+    n2int::Dict{T, Int}
+    active::BitSet    
 end
 
+MonoSet{T}() where T = MonoSet{T}(Dict{T,Int}(), BitSet())
 Base.broadcastable(M::MonoSet) = Ref(M)
+Base.eltype(M::MonoSet{T}) where T = T
+
+function add_mono!(M::MonoSet{T}, mono::T) where T
+    if !(haskey(M.n2int, mono))
+        M.n2int[mono] = length(M.n2int) + 1
+    end
+end
 
 function monoset(variables::Vector{T}, degree::Int) where T <: MP.AbstractVariable
-    mv = monomials(variables, 0:degree)
-    return MonoSet(Dict(mon => false for mon in mv))
+    mv = [mon for mon in monomials(variables, 0:degree)]
+    M = MonoSet{typeof(mv[end])}()
+    add_mono!.(M, mv)
+    return M
 end
 
 function activate!(M::MonoSet, m::AbstractMonomialLike)
-    M.dict[m] = true    
+    push!(M.active, M.n2int[m])
 end
 
-is_active(M::MonoSet, m::AbstractMonomialLike) = M.dict[m]
-
+is_active(M::MonoSet, m::AbstractMonomialLike) = M.n2int[m] in M.active
 
 function add_monomials(G::CEG.LabelledGraph, M::MonoSet, con::PolyCon)
     finish = true
@@ -104,24 +114,36 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     end
 
     #initiate multiplier_bases
-    multiplier_bases = OrderedDict(con => Vector{Vector{keytype(M.dict)}}([[1]]) for con in cons)
+    multiplier_bases = OrderedDict(con => Vector{Vector{eltype(M)}}([[1]]) for con in cons)
 
-    G = Dict{eltype(cons), CEG.LabelledGraph{keytype(M.dict)}}(con => CEG.LabelledGraph{keytype(M.dict)}() for con in cons )
+    G = Dict{eltype(cons), CEG.LabelledGraph{eltype(M)}}(con => CEG.LabelledGraph{eltype(M)}() for con in cons )
     for con in cons
         CEG.add_node!.(G[con], [mon for mon in monomials(vars, 0:degrees[con])])
     end
 
     finish = false
-    while !finish
-        finish = true
-        for con in cons
-            G[con], M, finish = add_monomials(G[con], M, con)
-            if !finish
+    is_chordal = false
+
+    while !is_chordal||!finish
+        while !finish
+            finish = true
+            for con in cons
+                G[con], M, finish = add_monomials(G[con], M, con)
+                if !finish
+                    is_chordal = false
+                end
+            end
+        end
+
+        if !is_chordal
+            for con in cons
                 if sense(con) == EQ
                     unique!(sort!(append!(multiplier_bases[con][1],[G[con].int2n[i] for i in 1:CEG.num_nodes(G[con].graph) if i in CEG.neighbors(G[con].graph, i)]), rev = true))
                 else
-                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn()) #TODO Might not be necessary to run chordal extension in every loop.
+                    G[con], multiplier_bases[con] = CEG.chordal_extension(G[con], CEG.GreedyFillIn()) 
                 end
+                is_chordal = true
+                finish = false
             end
         end
     end
