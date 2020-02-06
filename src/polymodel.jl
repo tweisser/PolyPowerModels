@@ -100,6 +100,15 @@ function split_equality(con::PolyCon)
     end
 end
 
+function invert_inequality(con::PolyCon)
+	if sense(con) == EQ
+        return con
+    elseif sense(con) == LT
+		return PolyCon(GT, constraint_function(con))
+	else
+        return PolyCon(LT, constraint_function(con))
+	end
+end
 
 
 function semialgebraic_set(cons::Vector{PolyCon})
