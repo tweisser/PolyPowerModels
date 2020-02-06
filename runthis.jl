@@ -10,14 +10,14 @@ using PolyPowerModels
 
 using OrderedCollections
 
-#data = parse_file("test/testcases/pglib_opf_case3_lmbd.m") #10|5
-data = parse_file("test/testcases/pglib_opf_case5_pjm.m") #16|10
-#data = parse_file("data/pglib-opf/pglib_opf_case14_ieee.m") #32|14
-#data = parse_file("data/pglib-opf/pglib_opf_case24_ieee_rts.m") #46|35
-#data = parse_file("data/pglib-opf/pglib_opf_case30_as.m") #59|25
-#data = parse_file("data/pglib-opf/pglib_opf_case30_fsr.m") #59|25 
-#data = parse_file("data/pglib-opf/pglib_opf_case30_ieee.m") #59|25
-#data = parse_file("data/pglib-opf/pglib_opf_case39_epri.m") #43|23
+#data = parse_file("test/testcases/pglib_opf_case3_lmbd.m") 
+#data = parse_file("test/testcases/pglib_opf_case5_pjm.m") 
+#data = parse_file("data/pglib-opf/pglib_opf_case14_ieee.m") 
+#data = parse_file("data/pglib-opf/pglib_opf_case24_ieee_rts.m") 
+#data = parse_file("data/pglib-opf/pglib_opf_case30_as.m") 
+#data = parse_file("data/pglib-opf/pglib_opf_case30_fsr.m")  
+data = parse_file("data/pglib-opf/pglib_opf_case30_ieee.m") 
+#data = parse_file("data/pglib-opf/pglib_opf_case39_epri.m") 
 
 
 function max_size_sdp_constraint(multipliers)
@@ -54,7 +54,7 @@ function bench(data, level, model_type, factory)
         println()
 
         t_sol = @elapsed optimize!(sosm, factory)
-        
+       #= 
         for (key, val) in multipliers
             if MultivariatePolynomials.maxdegree(constraint_function(key)) == 0 
             println(key)
@@ -64,21 +64,21 @@ function bench(data, level, model_type, factory)
             println()
         end
         end
-        
+        =#
         return t_m, t_sol, termination_status(sosm), objective_value(sosm), max_size_sdp_constraint(multipliers)
     end
 end
 
 candidates = [
-              #(0, SparseSDPWRMPowerModel),
-              #(0, ACRPowerModel),
-              #(1, NoSparsity()),
-              #(2, VariableSparsity()),
-              #(2, MonomialSparsity()),
-              #(2, CombinedSparsity()),
-              #(1, VariableSparsity()),
-              (1, MonomialSparsity()),
-              (1, CombinedSparsity())
+             # (0, SparseSDPWRMPowerModel),
+              (0, ACRPowerModel),
+             # (1, NoSparsity()),
+             # (2, VariableSparsity()),
+             # (2, MonomialSparsity()),
+              (2, CombinedSparsity()),
+             # (1, VariableSparsity()),
+             # (1, MonomialSparsity()),
+             # (1, CombinedSparsity())
              ]
 
 benchmark = OrderedDict(candidate => bench(data, first(candidate), last(candidate), factory) for candidate in candidates)

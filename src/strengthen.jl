@@ -173,6 +173,15 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
         activate!.(M, [mon for mon in monomials(con) for con in constraint_function.(cons)])
     end
 
+    for i = 1:length(cliques)
+        for j = i+1:length(cliques)
+            intersection = intersect(cliques[i], cliques[j])
+            if !isempty(intersection)
+            activate!.(M, [mon for mon in monomials(sort!(intersection, rev = true), 0:degree)])
+            end
+        end
+    end
+
     #= too brutal
     for con in cons
     for var in vars[con]
@@ -196,6 +205,11 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     while !is_chordal||!finish
         while !finish
             finish = true
+
+
+
+
+            
             for con in cons
                 for var in vars[con]
                     G[con][var], M, finish = add_monomials(G[con][var], M, con)
@@ -204,6 +218,8 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
                     end
                 end
             end
+            
+
         end
         if !is_chordal
             for con in cons
