@@ -172,7 +172,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     for con in constraint_function.(cons)
         activate!.(M, [mon for mon in monomials(con) for con in constraint_function.(cons)])
     end
-
+#=
     for i = 1:length(cliques)
         for j = i+1:length(cliques)
             intersection = intersect(cliques[i], cliques[j])
@@ -181,7 +181,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
             end
         end
     end
-
+=#
     #= too brutal
     for con in cons
     for var in vars[con]
@@ -259,6 +259,9 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
     else
         @error("Unknown sparsity pattern")
     end
+
+    println("multipliers computed")
+
     p = copy(f)
     for (con, mvs) in multipliers
         for mv in mvs
@@ -271,6 +274,8 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
         end
     end
     @constraint(model, p == 0)
+
+    println("model constructed")
 
     return model, multipliers
 end
