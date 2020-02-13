@@ -42,7 +42,7 @@ pop_opf(data::Dict{String, Any})
 Turn PowerModels data into the AC OPF represented as a quartic polynomial optimization problem. 
 DC lines are not supported.
 """
-function pop_opf(data::Dict{String, Any}; normalize = true)
+function pop_opf_deg4(data::Dict{String, Any}; normalize = true)
 
     @assert !haskey(data, "multinetwork")
     @assert !haskey(data, "conductors")
@@ -328,4 +328,12 @@ function pop_opf_deg2(data::Dict{String, Any}; normalize = true)
     var = Dict(:vr => vr, :vi => vi, :p => p, :q => q, :pg => pg, :qg => qg)
 
     return PolyPowerModel(model, data, ref, var, Dict())
+end
+
+function pop_opf(data::Dict{String, Any}; degree = 4, normalize = true)
+    if degree == 2
+        return pop_opf_deg2(data; normalize = normalize)
+    elseif degree ==4
+        return pop_opf_deg4(data; normalize = normalize)
+    end
 end
