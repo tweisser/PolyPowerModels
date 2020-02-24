@@ -13,5 +13,6 @@ using OrderedCollections
 include("polymodel.jl")
 include("polypowermodel.jl")
 include("strengthen.jl")
+include("pm_strengthen.jl")
 
 end

@@ -137,8 +137,10 @@ function pop_opf_deg4(data::Dict{String, Any}; normalize = true)
 
     pg = Dict()
     qg = Dict()
+    
+    pq = Dict()
 
-    for (i,bus) in ref[:bus]
+    for (i, bus) in ref[:bus]
 
         # active/reactive power
 
@@ -146,18 +148,18 @@ function pop_opf_deg4(data::Dict{String, Any}; normalize = true)
         bus_shunts = [ref[:shunt][s] for s in ref[:bus_shunts][i]]
 
         if isempty(ref[:bus_gens][i])
-            add_constraint!(model,fl_sum(p[a] for a in ref[:bus_arcs][i]),EQ,-fl_sum(load["pd"] for load in bus_loads) - fl_sum(shunt["gs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2); normalize = normalize )
-            add_constraint!(model,fl_sum(q[a] for a in ref[:bus_arcs][i]),EQ,-fl_sum(load["qd"] for load in bus_loads) + fl_sum(shunt["bs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2); normalize = normalize )
-        elseif length(ref[:bus_gens][i]) == 1
-            gen_id = ref[:bus_gens][i][1]
-            pg[gen_id] = fl_sum(p[a] for a in ref[:bus_arcs][i]) + fl_sum(load["pd"] for load in bus_loads) + fl_sum(shunt["gs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2)
-            add_constraint!( model, ref[:gen][gen_id]["pmin"], LT, pg[gen_id]; normalize = normalize )
-            add_constraint!( model, pg[gen_id], LT, ref[:gen][gen_id]["pmax"]; normalize = normalize )
-
-            qg[gen_id] = fl_sum(q[a] for a in ref[:bus_arcs][i]) + fl_sum(load["qd"] for load in bus_loads) - fl_sum(shunt["bs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2)
-            add_constraint!( model, ref[:gen][gen_id]["qmin"], LT, qg[gen_id]; normalize = normalize )
-            add_constraint!( model, qg[gen_id], LT, ref[:gen][gen_id]["qmax"]; normalize = normalize )
-
+        # it turned out that it is better to generate this extra variable in order to use grid sparsity 
+            
+            pq[i] = new_polyvar("pq"*string(i))
+            
+            add_constraint!( model, pq[i], EQ, 
+                            fl_sum(p[a] for a in ref[:bus_arcs][i]) + fl_sum(load["pd"] for load in bus_loads) + fl_sum(shunt["gs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2),
+                            normalize = normalize)
+            add_constraint!( model, pq[i], EQ, 
+                            fl_sum(q[a] for a in ref[:bus_arcs][i]) + fl_sum(load["qd"] for load in bus_loads) - fl_sum(shunt["bs"] for shunt in bus_shunts)*(vr[i]^2+vi[i]^2),
+                            normalize = normalize)
+            add_constraint!( model, pq[i], EQ, 0.0, normalize = normalize )
+   
         else
             for gen_id in ref[:bus_gens][i]
                 pg[gen_id] = new_polyvar("pg"*string(gen_id))
@@ -187,7 +189,7 @@ function pop_opf_deg4(data::Dict{String, Any}; normalize = true)
     # objective
     set_objective!( model, MIN, sum(gen["cost"][1]*pg[i]^2 + gen["cost"][2]*pg[i] + gen["cost"][3] for (i,gen) in ref[:gen]) )
 
-    var = Dict(:vr => vr, :vi => vi, :p => p, :q => q, :pg => pg, :qg => qg)
+    var = Dict(:vr => vr, :vi => vi, :p => p, :q => q, :pg => pg, :qg => qg, :pq => pq)
 
     return PolyPowerModel(model, data, ref, var, Dict())
 end
@@ -255,16 +257,32 @@ function pop_opf_deg2(data::Dict{String, Any}; normalize = true)
         tm = branch["tap"]
 
         p[f_idx] = new_polyvar("p"*string(f_idx))
-        add_constraint!( model, p[f_idx], EQ, (g+g_fr)/tm^2*(vr_fr^2 + vi_fr^2) + (-g*tr+b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr-g*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to); normalize = normalize )
+        add_constraint!( model, p[f_idx], EQ, 
+                        (g+g_fr)/tm^2*(vr_fr^2 + vi_fr^2) 
+                        + (-g*tr+b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to)
+                        + (-b*tr-g*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to);
+                        normalize = normalize )
 
         q[f_idx] = new_polyvar("q"*string(f_idx))  
-        add_constraint!( model, q[f_idx], EQ, -(b+b_fr)/tm^2*(vr_fr^2 + vi_fr^2) - (-b*tr-g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-g*tr+b*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to); normalize = normalize )
+        add_constraint!( model, q[f_idx], EQ, 
+                        -(b+b_fr)/tm^2*(vr_fr^2 + vi_fr^2) 
+                        - (-b*tr-g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) 
+                        + (-g*tr+b*ti)/tm^2*(vi_fr*vr_to - vr_fr*vi_to);
+                        normalize = normalize )
 
         p[t_idx] = new_polyvar("p"*string(t_idx))
-        add_constraint!( model, p[t_idx], EQ, (g+g_to)*(vr_to^2 + vi_to^2) + (-g*tr-b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-b*tr+g*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to)); normalize = normalize )
+        add_constraint!( model, p[t_idx], EQ, 
+                        (g+g_to)*(vr_to^2 + vi_to^2) 
+                        + (-g*tr-b*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) 
+                        + (-b*tr+g*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to));
+                        normalize = normalize )
 
         q[t_idx] = new_polyvar("q"*string(t_idx))
-        add_constraint!( model, q[t_idx], EQ, -(b+b_to)*(vr_to^2 + vi_to^2) - (-b*tr+g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to) + (-g*tr-b*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to)); normalize = normalize )
+        add_constraint!( model, q[t_idx], EQ, 
+                        -(b+b_to)*(vr_to^2 + vi_to^2) 
+                        - (-b*tr+g*ti)/tm^2*(vr_fr*vr_to + vi_fr*vi_to)
+                        + (-g*tr-b*ti)/tm^2*(-(vi_fr*vr_to - vr_fr*vi_to));
+                        normalize = normalize )
 
         # angle differences
         add_constraint!( model, (vi_fr*vr_to - vr_fr*vi_to), LT, tan(branch["angmax"])*(vr_fr*vr_to + vi_fr*vi_to); normalize = normalize )
@@ -333,7 +351,7 @@ end
 function pop_opf(data::Dict{String, Any}; degree = 4, normalize = true)
     if degree == 2
         return pop_opf_deg2(data; normalize = normalize)
-    elseif degree ==4
+    elseif degree == 4
         return pop_opf_deg4(data; normalize = normalize)
     end
 end

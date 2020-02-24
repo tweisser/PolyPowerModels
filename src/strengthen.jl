@@ -1,5 +1,6 @@
-export strengthening, CombinedSparsity
-
+export strengthening, CombinedSparsity, partial_strengthening
+using MutableArithmetics
+const MA = MutableArithmetics
 
 """
     muliplier_degree(::PolyCon, ::Int)
@@ -28,10 +29,20 @@ function dense_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degr
     return multiplier_bases
 end
 
-function variable_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
-    _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
-    vars = Dict(con => [clique for clique in cliques if effective_variables(constraint_function(con))⊆ clique] for con in cons)
+function variable_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int; maxcliques = nothing)
+    
+    if maxcliques isa Nothing
+        _, maxcliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
+    end
+
+    vars = Dict(con => [clique for clique in maxcliques if effective_variables(constraint_function(con))⊆ clique] for con in cons)
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
+
+    for mon in monomials(f)
+        if !(any(effective_variables(mon)⊆clique for clique in maxcliques))
+           @warn(" $mon is not in any maximal clique!")
+        end
+    end
 
     #initiate multiplier_bases
     multiplier_bases = OrderedDict(con => Vector{Vector{monomialtype(f)}}([]) for con in cons)
@@ -158,14 +169,18 @@ function monomial_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     return multiplier_bases
 end
 
-function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int)
-    _, cliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
-    vars = Dict(con => [clique for clique in cliques if effective_variables(constraint_function(con)) ⊆ clique] for con in cons)
+function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{PolyCon}, degree::Int; maxcliques = nothing)
+
+    if maxcliques isa Nothing
+        _, maxcliques = SumOfSquares.Certificate.chordal_csp_graph(f, semialgebraic_set(cons))
+    end
+
+    vars = Dict(con => [clique for clique in maxcliques if effective_variables(constraint_function(con)) ⊆ clique] for con in cons)
     degrees = Dict{PolyPowerModels.PolyCon, Int64}(con => multiplier_degree(con, degree) for con in cons)
 
     #initiate monomial set
     M = MonoSet{monomialtype(f)}()
-    for clique in cliques
+    for clique in maxcliques
         add_mono!.(M, monomials(clique, 0:degree))
     end
     activate!.(M, [mon for mon in monomials(f)])
@@ -204,12 +219,7 @@ function combined_sparse_putinar(f::MP.AbstractPolynomialLike, cons::Vector{Poly
     is_chordal = false
     while !is_chordal||!finish
         while !finish
-            finish = true
-
-
-
-
-            
+            finish = true  
             for con in cons
                 for var in vars[con]
                     G[con][var], M, finish = add_monomials(G[con][var], M, con)
@@ -247,21 +257,23 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
     
     cons = normalize_sense.(ccons)
     push!(cons, PolyCon(GT, vars[1]^0))
+    
 
     if sparsity isa NoSparsity
-        multipliers = dense_putinar(f, cons, degree)
+        summary["t_multipliers"] = @elapsed multipliers = dense_putinar(f, cons, degree)
     elseif sparsity isa VariableSparsity
-        multipliers = variable_sparse_putinar(f, cons, degree)
+        summary["t_multipliers"] = @elapsed multipliers = variable_sparse_putinar(f, cons, degree)
     elseif sparsity isa MonomialSparsity
-        multipliers = monomial_sparse_putinar(f, cons, degree)
+        summary["t_multipliers"] = @elapsed multipliers = monomial_sparse_putinar(f, cons, degree)
     elseif sparsity isa CombinedSparsity
-        multipliers = combined_sparse_putinar(f, cons, degree)
+        summary["t_multipliers"] = @elapsed multipliers = combined_sparse_putinar(f, cons, degree)
     else
         @error("Unknown sparsity pattern")
     end
 
-    println("multipliers computed")
-
+    #println("multipliers computed")
+    
+    
     p = copy(f)
     for (con, mvs) in multipliers
         for mv in mvs
@@ -270,12 +282,12 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
             else
                 mult = @variable(model, [1], SOSPoly(mv)) 
             end
-            p -= constraint_function(con)*mult[1]
+            p = MA.add!(p, -constraint_function(con)*mult[1])
         end
     end
     @constraint(model, p == 0)
 
-    println("model constructed")
+    #println("model constructed")
 
     return model, multipliers
 end
@@ -296,7 +308,9 @@ function strengthening(m::PolyModel; sparsity = NoSparsity(), max_degree = total
         f = objective_function(m)
     end
 
-    sosm, multipliers = sos_constraint!(sosm, f, constraints(m), max_degree::Int, sparsity)
+    sosm, multipliers = sos_constraint!(sosm, f, constraints(m), max_degree, sparsity)
 
-    return sosm, multipliers
+    return sosm, multipliersi
 end
+
+

@@ -84,6 +84,12 @@ function Base.show(io::IO, con::PolyCon)
     end
 end
 
+function Base.show(io::IO, con::Vector{PolyCon})
+    for c in con
+        println(io, c)
+    end
+end
+
 function normalize_sense(con::PolyCon)
 	if sense(con) == LT
 		return PolyCon(GT, -constraint_function(con))
