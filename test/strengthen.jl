@@ -4,7 +4,8 @@
     pm = pop_opf(data; degree = 2)
 
     sosm, dict, summary = strengthening(pm; sparsity = NoSparsity())
-    summary["t_solve"] = @elapsed optimize!(sosm, factory)
+    set_optimizer(sosm, factory)
+    summary["t_solve"] = @elapsed optimize!(sosm)
     println("No Sparsity, full")
     println(termination_status(sosm))
     println(objective_value(sosm))
@@ -13,7 +14,8 @@
 
 
     sosm, dict, summary = strengthening(pm; sparsity = VariableSparsity())
-    summary["t_solve"] = @elapsed optimize!(sosm, factory)
+    set_optimizer(sosm, factory)
+    summary["t_solve"] = @elapsed optimize!(sosm)
     println("Variable Sparsity, full")
     println(termination_status(sosm))
     println(objective_value(sosm))
