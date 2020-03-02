@@ -1,5 +1,7 @@
 *.jl.cov
 *.jl.*.cov
 *.jl.mem
+*.swp
 deps/deps.jl
 Manifest.toml
+data/*

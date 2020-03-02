@@ -1,10 +1,15 @@
-using PolyPowerModels
-using Ipopt
-using MosekTools
-
 using Test
 
-#include("model.jl")
-include("acr_test.jl")
+using DynamicPolynomials
+using PowerModels
+using SumOfSquares
+using MosekTools
+factory = with_optimizer(Mosek.Optimizer, QUIET=true)
 
+using Revise
+
+using PolyPowerModels
+
+#include("model.jl")
+include("strengthen.jl")
 

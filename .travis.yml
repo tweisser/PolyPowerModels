@@ -1,0 +1,17 @@
+language: julia
+codecov: true
+os:
+    - linux
+    - osx
+julia:
+    - 1.0
+    - 1.1
+    - nightly
+addons:
+    apt: # apt-get for linux
+        packages: # for CSDP
+        - liblapack-dev
+        - libblas-dev
+matrix:
+    allow_failures:
+        - julia: nightly

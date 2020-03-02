@@ -1,27 +1,18 @@
 module PolyPowerModels
 
-using MathOptInterface
-const MOI = MathOptInterface
+using MultivariatePolynomials
+const MP = MultivariatePolynomials
+const PT = Union{Number, MP.AbstractPolynomialLike}
+using DynamicPolynomials
+using SumOfSquares
+const CEG = SumOfSquares.Certificate.ChordalExtensionGraph
+using PowerModels
 
-import Reexport
+using OrderedCollections
 
-#JuMP
-Reexport.@reexport using JuMP
+include("polymodel.jl")
+include("polypowermodel.jl")
+include("strengthen.jl")
+include("pm_strengthen.jl")
 
-Reexport.@reexport using DynamicPolynomials
-const DP = DynamicPolynomials
-const APL = AbstractPolynomialLike
-
-#SemialgebraicSets
-Reexport.@reexport using SemialgebraicSets
-
-include("model.jl")
-include("jump_ext.jl")
-
-Reexport.@reexport using SumOfSquares
-include("sos.jl")
-
-#PowerModels
-Reexport.@reexport using PowerModels
-include("form/poly_acr.jl")
-end # module
+end
