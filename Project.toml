@@ -20,7 +20,6 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 SemialgebraicSets = "8e049039-38e8-557d-ae3a-bc521ccf6204"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 SumOfSquares = "4b9e565b-77fc-50a5-a571-1244f986bda1"
-Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
