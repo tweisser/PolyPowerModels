@@ -5,7 +5,6 @@ using Ipopt
 using MosekTools
 factory = with_optimizer(Mosek.Optimizer)
 
-using Revise
 using PolyPowerModels
 
 using OrderedCollections

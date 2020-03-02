@@ -3,7 +3,6 @@ using SumOfSquares
 using MosekTools
 factory = with_optimizer(Mosek.Optimizer, QUIET = true)
 
-using Revise
 using PolyPowerModels
 
 @polyvar w x y z
