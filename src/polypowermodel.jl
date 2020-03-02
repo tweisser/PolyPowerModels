@@ -15,7 +15,7 @@ model(pm::AbstractPolyPowerModel) = pm.model
 MP.variables(pm::AbstractPolyPowerModel) = pm.var
 objective(pm::AbstractPolyPowerModel) = objective(model(pm))
 constraints(pm::AbstractPolyPowerModel) = constraints(model(pm))
-objective_function(pm::AbstractPolyPowerModel) = objective_function(model(pm))
+SumOfSquares.objective_function(pm::AbstractPolyPowerModel) = objective_function(model(pm))
 
 function Base.show(io::IO, pm::AbstractPolyPowerModel)
     print(io, model(pm))

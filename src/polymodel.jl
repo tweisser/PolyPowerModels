@@ -1,6 +1,6 @@
 export PolyModel, set_objective!, add_constraint!
 export MAX, MIN, LT, GT, EQ, PolyCon
-export sense, constraints, constraint_names, constraint_function, objective_function, objective_sense
+export sense, constraints, constraint_names, constraint_function
 
 """
 PolyObj
@@ -19,9 +19,9 @@ mutable struct PolyObj
 end
 
 sense(obj::PolyObj) = obj.sense
-objective_function(obj::PolyObj) = obj.func
+SumOfSquares.objective_function(obj::PolyObj) = obj.func
 sense(obj::Nothing) = nothing
-objective_function(obj::Nothing) = nothing
+SumOfSquares.objective_function(obj::Nothing) = nothing
 
 function Base.show(io::IO, obj::PolyObj)
     if sense(obj) == MAX
@@ -155,8 +155,8 @@ end
 Base.broadcastable(m::PolyModel) = Ref(m)
 
 objective(m::PolyModel) = m.objective
-objective_function(m::PolyModel) = objective_function(objective(m))
-objective_sense(m::PolyModel) = sense(objective(m))
+SumOfSquares.objective_function(m::PolyModel) = objective_function(objective(m))
+SumOfSquares.objective_sense(m::PolyModel) = sense(objective(m))
 constraints(m::PolyModel) = m.constraints
 constraint_names(m::PolyModel) = m.constraint_names
 total_degree(m::PolyModel) = maximum([maxdegree(objective_function(m)), maxdegree.(constraint_function.(constraints(m)))...])
