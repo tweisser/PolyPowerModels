@@ -251,13 +251,14 @@ end
 
 struct CombinedSparsity <: SumOfSquares.Sparsity end
 
-function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vector{PolyCon}, degree::Int, sparsity::Sparsity)
+function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vector{PolyCon}, degree::Int, sparsity::Sparsity; summary = Dict())
 
     vars = sort!(union(variables(f),variables.(constraint_function.(ccons))...), rev = true)
     
     cons = normalize_sense.(ccons)
     push!(cons, PolyCon(GT, vars[1]^0))
     
+    summary["t_chordal_extension"] = 0.0
 
     if sparsity isa NoSparsity
         summary["t_multipliers"] = @elapsed multipliers = dense_putinar(f, cons, degree)
@@ -272,8 +273,9 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
     end
 
     #println("multipliers computed")
-    
-    
+    summary["max_size_sdp"] = 0
+
+    t_start = time()
     p = copy(f)
     for (con, mvs) in multipliers
         for mv in mvs
@@ -281,19 +283,24 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
                 mult = @variable(model, [1], Poly(mv)) 
             else
                 mult = @variable(model, [1], SOSPoly(mv)) 
+                summary["max_size_sdp"] = maximum([summary["max_size_sdp"], length(mv)])                
             end
             p = MA.add!(p, -constraint_function(con)*mult[1])
         end
     end
     @constraint(model, p == 0)
+    if !haskey(summary, "t_sos_model")
+        summary["t_sos_model"] = 0
+    end
 
+    summary["t_sos_model"] += time()-t_start
     #println("model constructed")
 
-    return model, multipliers
+    return model, multipliers, summary
 end
 
 function strengthening(m::PolyModel; sparsity = NoSparsity(), max_degree = total_degree(m))
-
+    t_start = time()
     sosm = SOSModel()
 
     if objective_sense(m) == MAX
@@ -307,10 +314,11 @@ function strengthening(m::PolyModel; sparsity = NoSparsity(), max_degree = total
     else 
         f = objective_function(m)
     end
+    summary["t_sos_model"] = time()- t_start
 
-    sosm, multipliers = sos_constraint!(sosm, f, constraints(m), max_degree, sparsity)
+    sosm, multipliers = sos_constraint!(sosm, f, constraints(m), max_degree, sparsity; summary = summary)
 
-    return sosm, multipliersi
+    return sosm, multipliers, summary
 end
 
 
