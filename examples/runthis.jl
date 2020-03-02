@@ -11,14 +11,7 @@ using PolyPowerModels
 using OrderedCollections
 
 #data = parse_file("test/testcases/pglib_opf_case3_lmbd.m") 
-#data = parse_file("test/testcases/pglib_opf_case5_pjm.m") 
-#data = parse_file("data/pglib-opf/pglib_opf_case14_ieee.m") 
-#data = parse_file("data/pglib-opf/pglib_opf_case24_ieee_rts.m") 
-#data = parse_file("data/pglib-opf/pglib_opf_case30_as.m") 
-#data = parse_file("data/pglib-opf/pglib_opf_case30_fsr.m")  
-data = parse_file("data/pglib-opf/pglib_opf_case30_ieee.m") 
-#data = parse_file("data/pglib-opf/pglib_opf_case39_epri.m") 
-
+data = parse_file("test/testcases/pglib_opf_case5_pjm.m") 
 
 function max_size_sdp_constraint(multipliers)
     s = 1

@@ -1,6 +1,6 @@
 @testset "strengthenings" begin
 
-    data = parse_file("data/pglib-opf/pglib_opf_case5_pjm.m")
+    data = parse_file("testcases/pglib_opf_case5_pjm.m")
     pm = pop_opf(data; degree = 2)
 
     sosm, dict, summary = strengthening(pm; sparsity = NoSparsity())

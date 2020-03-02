@@ -34,7 +34,6 @@ for cand in candidates
     println(t_s)
     println(termination_status(sos))
     println(objective_value(sos))
-    println(max_size_sdp_constraint(mult))
 
     println()
 end

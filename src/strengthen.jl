@@ -299,7 +299,7 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
     return model, multipliers, summary
 end
 
-function strengthening(m::PolyModel; sparsity = NoSparsity(), max_degree = total_degree(m))
+function strengthening(m::PolyModel; sparsity = NoSparsity(), max_degree = total_degree(m), summary = Dict())
     t_start = time()
     sosm = SOSModel()
 
