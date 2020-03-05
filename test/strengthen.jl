@@ -1,75 +1,25 @@
-@testset "strengthenings" begin
+@testset "stregthen" begin
+    m = PolyModel()
+    @polyvar x y z
+    set_objective!(m, MIN, x^4*y^2 + x^2*y^4 - 3*x^2*y^2*z^2 + z^6)
+    add_constraint!.(m, "circ", -x^2 - y^2, GT, -2)
+    add_constraint!(m, "proj", z, EQ, 1)
 
-    data = parse_file("testcases/pglib_opf_case5_pjm.m")
-    pm = pop_opf(data; degree = 2)
+	sosm, mult, summ = strengthening(m::PolyModel)
+	@test mult[constraint_by_name(m, "circ")] == [monomials([x,y,z], 0:2)]
+	@test mult[constraint_by_name(m, "proj")] == [monomials([x,y,z], 0:5)]	
+	@test summ["max_size_sdp"] == 20
+	sosm, mult, summ = strengthening(m::PolyModel, sparsity = VariableSparsity())
+	@test mult[constraint_by_name(m, "circ")] == [monomials([x,y,z], 0:2)]
+	@test mult[constraint_by_name(m, "proj")] == [monomials([x,y,z], 0:5)]	
+	@test summ["max_size_sdp"] == 20
+	sosm, mult, summ = strengthening(m::PolyModel, sparsity = MonomialSparsity())
+	@test mult[constraint_by_name(m, "circ")] == [[x^2, y^2, z^2, z, 1], [y*z, y], [x*z, x], [x*y]]	
+	@test mult[constraint_by_name(m, "proj")] == [[x^4*z, x^2*y^2*z, x^2*z^3, y^4*z, y^2*z^3, z^5, x^4, x^2*y^2, x^2*z^2, y^4, y^2*z^2, z^4, x^2*z, y^2*z, z^3, x^2, y^2, z^2, z, 1]]
+	@test summ["max_size_sdp"] == 8
+	sosm, mult, summ = strengthening(m::PolyModel, sparsity = CombinedSparsity())
+	@test mult[constraint_by_name(m, "circ")] == [[x^2, y^2, z^2, z, 1], [y*z, y], [x*z, x], [x*y]]	
+	@test mult[constraint_by_name(m, "proj")] == [[x^4*z, x^2*y^2*z, x^2*z^3, y^4*z, y^2*z^3, z^5, x^4, x^2*y^2, x^2*z^2, y^4, y^2*z^2, z^4, x^2*z, y^2*z, z^3, x^2, y^2, z^2, z, 1]]
+	@test summ["max_size_sdp"] == 8
 
-    sosm, dict, summary = strengthening(pm; sparsity = NoSparsity())
-    set_optimizer(sosm, factory)
-    summary["t_solve"] = @elapsed optimize!(sosm)
-    println("No Sparsity, full")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println(summary)
-    println()
-
-
-    sosm, dict, summary = strengthening(pm; sparsity = VariableSparsity())
-    set_optimizer(sosm, factory)
-    summary["t_solve"] = @elapsed optimize!(sosm)
-    println("Variable Sparsity, full")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println(summary)
-    println()
-
-
-#=
-    sosm, dict = strengthening(model(pm); sparsity = MonomialSparsity())
-    @time optimize!(sosm, factory)
-    println("Monomial Sparsity, full")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println()
-
-    sosm, dict = strengthening(model(pm); sparsity = CombinedSparsity())
-    @time optimize!(sosm, factory)
-    println("Combined Sparsity, full")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println()
-
-
-    sosm, dict, summary = strengthening(pm; sparsity = NoSparsity())
-    summary["t_solve"] = @elapsed optimize!(sosm, factory)
-    println("No Sparsity, pm")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println(summary)
-    println()
-    
-    sosm, dict, summary  = strengthening(pm; sparsity = VariableSparsity(), max_degree = 4)
-    summary["t_solve"] = @elapsed optimize!(sosm, factory)
-    println("Variable Sparsity, pm")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println(summary)
-    println()
-
-    sosm, dict, summary  = strengthening(pm; sparsity = MonomialSparsity())
-    summary["t_solve"] = @elapsed optimize!(sosm, factory)
-    println("Monomial Sparsity, pm")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println(summary)
-
-    println()
-
-    sosm, dict, summary  = strengthening(pm; sparsity = CombinedSparsity())
-    summary["t_solve"] = @elapsed optimize!(sosm, factory)
-    println("Combined Sparsity, pm")
-    println(termination_status(sosm))
-    println(objective_value(sosm))
-    println(summary)
-=#
-end
-
+ end

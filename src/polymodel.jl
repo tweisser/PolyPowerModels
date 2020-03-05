@@ -89,7 +89,17 @@ function Base.show(io::IO, con::Vector{PolyCon})
         println(io, c)
     end
 end
-
+#=
+function Base.:(==)(c1::PolyCon, c2::PolyCon)
+	if sense(c1) == sense(c2)
+		return constraint_function(c1)==constraint_function(c2)
+	elseif !(sense(c1)==EQ)
+		return -constraint_function(c1)==constraint_function(c2)
+	else 
+	    return false
+	end
+end
+=#
 function normalize_sense(con::PolyCon)
 	if sense(con) == LT
 		return PolyCon(GT, -constraint_function(con))
@@ -115,7 +125,6 @@ function invert_inequality(con::PolyCon)
         return PolyCon(LT, constraint_function(con))
 	end
 end
-
 
 function semialgebraic_set(cons::Vector{PolyCon})
     K = FullSpace()
@@ -224,4 +233,9 @@ end
 
 function feasible_set(m::PolyModel)
     return semialgebraic_set(constraints(m))
+end
+
+function JuMP.constraint_by_name(m::PolyModel, name::String)
+	id = findfirst(x -> x == name, constraint_names(m))
+	return constraints(m)[id]
 end
