@@ -1,4 +1,4 @@
-@testset "stregthen" begin
+@testset "strengthen" begin
     m = PolyModel()
     @polyvar x y z
     set_objective!(m, MIN, x^4*y^2 + x^2*y^4 - 3*x^2*y^2*z^2 + z^6)

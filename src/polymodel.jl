@@ -210,7 +210,7 @@ end
 
 function add_constraint!(m::PolyModel, name::String, fun1::PT, sense::AbstractConstraintSense, fun2::PT; normalize = false)
     if normalize
-        f = normalize(fun1 - fun2)
+        f = _normalize(fun1 - fun2)
     else
         f = fun1 - fun2
     end
