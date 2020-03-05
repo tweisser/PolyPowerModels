@@ -6,17 +6,9 @@ function strengthening(pm::PolyPowerModel; sparsity = NoSparsity(), max_degree =
     t_start = time()
     sosm = SOSModel()
 
-    if objective_sense(m) == MAX
-        t = @variable sosm 
-        @objective sosm Min t
-        f = t - objective_function(m)/factor
-    elseif objective_sense(m) == MIN
-        t = @variable sosm 
-        @objective sosm Max t
-        f = objective_function(m)/factor - t
-    else 
-        f = objective_function(m)/factor
-    end
+    t = @variable sosm 
+    @objective sosm Max t
+    f = objective_function(m)/factor - t
 
     summary["t_sos_model"] = time()- t_start
     if max_degree == 4
@@ -77,8 +69,10 @@ function maximal_cliques(pm::PolyPowerModel; algo = PowerModelsAlgorithm())
 
     for (i, bus) in pm.ref[:bus]
         if isempty(pm.ref[:bus_gens][i])
-            I = findall(x -> [pm.var[:pq][i]] ⊆  variables(constraint_function(x)), constraints(pm))
-            append!(max_cliques, [sort!(variables(constraint_function(constraints(pm)[id])), rev = true) for id in I])  
+            if haskey(pm.var, :pq)
+			    I = findall(x -> [pm.var[:pq][i]] ⊆  variables(constraint_function(x)), constraints(pm))
+                append!(max_cliques, [sort!(variables(constraint_function(constraints(pm)[id])), rev = true) for id in I])  
+			end
         else
             gens = pm.ref[:bus_gens][i]
             for j in gens
@@ -202,7 +196,7 @@ function deg2_sos_constraint!(pm::PolyPowerModel, sosm::Model, f::MP.AbstractPol
     if sparsity isa NoSparsity
         summary["t_multipliers"] = @elapsed multipliers = dense_putinar(zero(typeof(f)), voltage_constraints, max_degree)
     elseif sparsity isa MonomialSparsity
-        summary["t_multipliers"] = @elapsed multipliers = monomial_sparse_putinar(zero(typeof(f)), volatage_constraints, max_degree)
+        summary["t_multipliers"] = @elapsed multipliers = monomial_sparse_putinar(zero(typeof(f)), voltage_constraints, max_degree)
     else
         
         summary["t_chordal_extension"] = @elapsed  max_cliques = deg2_maximal_cliques(pm; algo = PowerModelsAlgorithm())
@@ -211,8 +205,6 @@ function deg2_sos_constraint!(pm::PolyPowerModel, sosm::Model, f::MP.AbstractPol
             summary["t_multipliers"] = @elapsed multipliers = variable_sparse_putinar(zero(typeof(f)), voltage_constraints, max_degree; maxcliques = max_cliques)
         elseif sparsity isa CombinedSparsity
             summary["t_multipliers"] = @elapsed multipliers = combined_sparse_putinar(zero(typeof(f)), voltage_constraints, max_degree; maxcliques = max_cliques)
-        else
-        @error("Unknown sparsity pattern")
         end
     end
 
