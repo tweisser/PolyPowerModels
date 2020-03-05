@@ -113,15 +113,11 @@ function pm_sos_constraint!(pm::PolyPowerModel, sosm::Model,
     elseif sparsity isa MonomialSparsity
         summary["t_multipliers"] = @elapsed multipliers = monomial_sparse_putinar(f, cons, max_degree)
     else
-        
-        summary["t_chordal_extension"] = @elapsed max_cliques = maximal_cliques(pm; algo = PowerModelsAlgorithm())
-          
+        summary["t_chordal_extension"] = @elapsed max_cliques = maximal_cliques(pm; algo = PowerModelsAlgorithm())  
         if sparsity isa VariableSparsity
             summary["t_multipliers"] = @elapsed multipliers = variable_sparse_putinar(f, cons, max_degree; maxcliques = max_cliques)
         elseif sparsity isa CombinedSparsity
             summary["t_multipliers"] = @elapsed multipliers = combined_sparse_putinar(f, cons, max_degree; maxcliques = max_cliques)
-        else
-        @error("Unknown sparsity pattern")
         end
     end
     

@@ -6,6 +6,7 @@
     Feasibility problem
     s.t.
     """
+	@test Base.broadcastable(m) isa Base.RefValue
 	@test objective_function(m) == nothing
     @polyvar x y
     set_objective!(m, MAX, x^4*y^2 + x^2*y^4 - 3*x^2*y^2 + 1)
@@ -16,8 +17,9 @@
     add_constraint!(m, 1000*y, LT, x; normalize = true)
     @test sprint(show, m) == "Maximize x^4*y^2 + x^2*y^4 - 3*x^2*y^2 + 1\ns.t.\nxbox : x ≥ 0\nxbox : -x - 1 ≥ 0\nyset : y = 0\n : -0.001*x + y ≤ 0\n"
 	add_constraint!(m, x, EQ, y)
-    add_constraint!(m, "normalized", 1000*y, LT, x; normalize = true)
+    add_constraint!(m, "normalized", 1000*y, GT, x; normalize = true)
     add_constraint!(m, PolyCon(1000*y, LT, x); normalize = true)
+	@test PolyPowerModels.feasible_set(m) isa AbstractSemialgebraicSet
 	p = x + y
 	@test PolyPowerModels.remove_almost_zeros(1e-12*p) == 0
 	@test constraint_function(PolyCon( x, LT, y)) == x-y
