@@ -280,9 +280,9 @@ function sos_constraint!(model::Model, f::MP.AbstractPolynomialLike, ccons::Vect
     for (con, mvs) in multipliers
         for mv in mvs
             if sense(con)== EQ
-                mult = @variable(model, [1], Poly(mv)) 
+                mult = @variable(model, [1], Poly(MonomialBasis(mv))) 
             else
-                mult = @variable(model, [1], SOSPoly(mv)) 
+                mult = @variable(model, [1], SOSPoly(MonomialBasis(mv))) 
                 summary["max_size_sdp"] = maximum([summary["max_size_sdp"], length(mv)])                
             end
             p = MA.add!(p, -constraint_function(con)*mult[1])

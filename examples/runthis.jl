@@ -3,7 +3,7 @@ using SumOfSquares
 using PowerModels
 using Ipopt
 using MosekTools
-factory = with_optimizer(Mosek.Optimizer)
+factory = Mosek.Optimizer
 
 using PolyPowerModels
 
@@ -26,7 +26,7 @@ end
 function bench(data, level, model_type, factory)
     if level == 0
         if model_type == ACRPowerModel
-            pm = run_opf(data, model_type, with_optimizer(Ipopt.Optimizer))
+            pm = run_opf(data, model_type, Ipopt.Optimizer)
         else
             pm = run_opf(data, model_type, factory)
         end
@@ -44,8 +44,8 @@ function bench(data, level, model_type, factory)
         println("Maximal SDP size: $(max_size_sdp_constraint(multipliers))")
         println("Preprocessing took $(t_m) seconds.")
         println()
-
-        t_sol = @elapsed optimize!(sosm, factory)
+        set_optimizer(sosm, factory)
+        t_sol = @elapsed optimize!(sosm)
        #= 
         for (key, val) in multipliers
             if MultivariatePolynomials.maxdegree(constraint_function(key)) == 0 
